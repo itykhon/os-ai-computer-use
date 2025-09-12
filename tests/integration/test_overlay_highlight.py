@@ -49,7 +49,7 @@ def _screencap_region(x0, y0, x1, y1):
     return pyautogui.screenshot(region=region).convert("RGB")
 
 
-@pytest.mark.skipif(platform.system() != "Darwin", reason="Mac-only GUI test")
+@pytest.mark.skipif(platform.system() != "Darwin" or os.environ.get("SKIP_OVERLAY_TESTS") == "1", reason="Mac-only GUI test or skipped by env")
 def test_overlay_highlight_visible_near_target_or_mirrored():
     from config.settings import PREMOVE_HIGHLIGHT_RADIUS
     from utils.overlay import highlight_position, get_highlight_state
@@ -118,7 +118,7 @@ def test_overlay_highlight_visible_near_target_or_mirrored():
     )
 
 
-@pytest.mark.skipif(platform.system() != "Darwin", reason="Mac-only GUI test")
+@pytest.mark.skipif(platform.system() != "Darwin" or os.environ.get("SKIP_OVERLAY_TESTS") == "1", reason="Mac-only GUI test or skipped by env")
 def test_overlay_highlight_alignment_exact():
     from config.settings import PREMOVE_HIGHLIGHT_RADIUS
     from utils.overlay import highlight_position

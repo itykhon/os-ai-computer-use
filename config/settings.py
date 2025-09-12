@@ -12,10 +12,18 @@ DEFAULT_DRAG_SPEED_PPS: float = 1000.0
 MIN_MOVE_DURATION: float = 0.30
 MAX_MOVE_DURATION: float = 1.5
 
-# Anthropic / Tools
+# LLM / Tools (provider-agnostic defaults)
+# Provider selection: "anthropic" | "openai"
+LLM_PROVIDER: str = "anthropic"
+
+# Anthropic defaults
 MODEL_NAME: str = "claude-sonnet-4-20250514"
 COMPUTER_TOOL_TYPE: str = "computer_20250124"
 COMPUTER_BETA_FLAG: str = "computer-use-2025-01-24"
+
+# OpenAI defaults (for Computer Use / o4-mini / gpt-4.1, etc.)
+OPENAI_MODEL_NAME: str = "o4-mini"
+
 MAX_TOKENS: int = 1500
 
 # Logging
@@ -33,6 +41,9 @@ API_BACKOFF_JITTER_SECONDS: float = 0.5
 
 # Tool use parallelism
 ALLOW_PARALLEL_TOOL_USE: bool = False  # set True to let the model request parallel tool_use
+
+# API request timeouts (seconds)
+API_REQUEST_TIMEOUT_SECONDS: float = 20.0
 
 # Conversation optimization
 SIMPLE_STEP_MAX_TOKENS: int = 600      # для простых шагов (клик/скролл/короткий ввод)
@@ -70,7 +81,7 @@ PREMOVE_HIGHLIGHT_DEFAULT_DURATION: float = 0.20
 
 # Virtual display presented to the model (recommended ≤ 1280x800)
 VIRTUAL_DISPLAY_ENABLED: bool = True
-VIRTUAL_DISPLAY_WIDTH_PX: int = 720 # 1024
+VIRTUAL_DISPLAY_WIDTH_PX: int = 1024
 VIRTUAL_DISPLAY_HEIGHT_PX: int = None
 
 # Screenshot capture settings

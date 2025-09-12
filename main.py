@@ -1,7 +1,6 @@
 import os, time, base64, argparse, json, sys, logging, random
 import httpx
 from typing import List, Dict, Any, Tuple
-import anthropic
 import pyautogui
 from config.settings import (
     PYAUTO_PAUSE_SECONDS,
@@ -135,7 +134,6 @@ from utils.logger import get_logger as _get_logger
 from utils.overlay import highlight_position, process_overlay_events
 from utils.sound import play_click_sound, play_done_sound
 from utils.keyboard import press_enter_mac
-from utils.costs import estimate_cost
 from utils.conversation_optimizer import ConversationOptimizer
 import pyperclip
 
@@ -472,9 +470,11 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
                 except Exception:
                     pass
                 logger.info(f"{action} at current position")
+            blocks = []
             if SCREENSHOT_AFTER_ACTIONS and action in SCREENSHOT_AFTER_ACTIONS_ACTIONS:
-                return [b64_image_from_screenshot()]
-            return [{"type": "text", "text": "ok"}]
+                blocks.append(b64_image_from_screenshot())
+            blocks.append({"type": "text", "text": f"done: {action}"})
+            return blocks
 
         if action in ("left_mouse_down", "left_mouse_up"):
             coord = params.get("coordinate")
@@ -502,9 +502,11 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
                 logging.getLogger(LOGGER_NAME).warning("PyAutoGUI fail-safe triggered during mouse down/up; skipping")
                 return [{"type": "text", "text": f"{action} skipped: fail-safe"}]
             logger.info(f"{action} executed")
+            blocks = []
             if SCREENSHOT_AFTER_ACTIONS and action in SCREENSHOT_AFTER_ACTIONS_ACTIONS:
-                return [b64_image_from_screenshot()]
-            return [{"type": "text", "text": "ok"}]
+                blocks.append(b64_image_from_screenshot())
+            blocks.append({"type": "text", "text": f"done: {action}"})
+            return blocks
 
         if action == "left_click_drag":
             # поддерживаем разные варианты полей
@@ -552,9 +554,11 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
                 logging.getLogger(LOGGER_NAME).warning("PyAutoGUI fail-safe triggered during drag; skipping drag")
                 return [{"type": "text", "text": "drag skipped: fail-safe"}]
             logger.info(f"drag {x1},{y1}->{x2},{y2}")
+            blocks = []
             if SCREENSHOT_AFTER_ACTIONS and action in SCREENSHOT_AFTER_ACTIONS_ACTIONS:
-                return [b64_image_from_screenshot()]
-            return [{"type": "text", "text": "ok"}]
+                blocks.append(b64_image_from_screenshot())
+            blocks.append({"type": "text", "text": f"done: {action}"})
+            return blocks
 
         if action == "type":
             text = params.get("text", "")
@@ -596,9 +600,11 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
             # По умолчанию посимвольная печать (ASCII и fallback)
             pyautogui.write(text, interval=0.02)
             logger.info(f"Typed {len(text)} chars")
+            blocks = []
             if SCREENSHOT_AFTER_ACTIONS and action in SCREENSHOT_AFTER_ACTIONS_ACTIONS:
-                return [b64_image_from_screenshot()]
-            return [{"type": "text", "text": "ok"}]
+                blocks.append(b64_image_from_screenshot())
+            blocks.append({"type": "text", "text": "done: drag"})
+            return blocks
 
         if action in ("key", "hold_key"):
             combo = params.get("key") or params.get("keys") or params.get("combo") or ""
@@ -622,8 +628,35 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
                 norm_keys = []
 
             if not norm_keys:
-                logger.warning("Pressed <empty combo>")
-                return [{"type": "text", "text": "error: missing key combo"}]
+                # Fallback: если пришёл одиночный символ/строка для печати, используем печать
+                fallback_text = params.get("text") or params.get("character")
+                if isinstance(fallback_text, str) and fallback_text:
+                    pyautogui.write(fallback_text, interval=0.02)
+                    logger.info(f"Typed {len(fallback_text)} chars via key-fallback")
+                    blocks = []
+                    if SCREENSHOT_AFTER_ACTIONS and "key" in SCREENSHOT_AFTER_ACTIONS_ACTIONS:
+                        blocks.append(b64_image_from_screenshot())
+                    blocks.append({"type": "text", "text": f"typed: {len(fallback_text)} chars"})
+                    return blocks
+                combo_raw = combo if isinstance(combo, str) else str(combo)
+                logger.warning(f"Pressed <empty combo> raw='{combo_raw}'")
+                return [{"type": "text", "text": f"error: missing key combo (raw='{combo_raw}')"}]
+
+            # Проверим неизвестные клавиши и красиво залогируем
+            try:
+                allowed_mods = {"command", "ctrl", "option", "alt", "shift"}
+                specials = {"enter", "esc", "escape", "tab", "space", "backspace", "delete", "home", "end", "pageup", "pagedown", "up", "down", "left", "right"}
+                letters = {chr(c) for c in range(ord('a'), ord('z') + 1)}
+                digits = {str(d) for d in range(0, 10)}
+                fkeys = {f"f{i}" for i in range(1, 25)}
+                allowed = allowed_mods | specials | letters | digits | fkeys
+                unknown = [k for k in norm_keys if k.lower() not in allowed]
+                if unknown:
+                    combo_raw = combo if isinstance(combo, str) else str(combo)
+                    logger.warning(f"Unknown key(s) in combo: {unknown} raw='{combo_raw}'")
+                    return [{"type": "text", "text": f"error: unknown key(s) {unknown} (raw='{combo_raw}')"}]
+            except Exception:
+                pass
 
             pressed_label = "+".join(norm_keys)
             if action == "hold_key":
@@ -649,9 +682,11 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
                     else:
                         pyautogui.hotkey(*norm_keys)
             logger.info(f"Pressed {pressed_label}")
+            blocks = []
             if SCREENSHOT_AFTER_ACTIONS and "key" in SCREENSHOT_AFTER_ACTIONS_ACTIONS:
-                return [b64_image_from_screenshot()]
-            return [{"type": "text", "text": "ok"}]
+                blocks.append(b64_image_from_screenshot())
+            blocks.append({"type": "text", "text": f"pressed: {pressed_label}"})
+            return blocks
 
         if action == "scroll":
             coord = params.get("coordinate")
@@ -707,288 +742,14 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
         logging.getLogger(LOGGER_NAME).exception(f"Error executing action '{action}'")
         return [{"type": "text", "text": f"error executing '{action}': {e}"}]
 
-def run_agent(task: str, max_iterations: int = 30):
-    logger = _get_logger()
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        logger.error("Set ANTHROPIC_API_KEY env var.")
-        sys.exit(1)
-
-    client = anthropic.Anthropic(api_key=api_key)
-
-    # Выбираем свежую модель + правильный tool и beta-флаг (2025-01-24)
-    # См. Quick start / Model compatibility в доке.
-    model = MODEL_NAME
-    tool_type = COMPUTER_TOOL_TYPE
-    beta_flag = COMPUTER_BETA_FLAG
-
-    tools = [{
-        "type": tool_type,
-        "name": "computer",
-        "display_width_px": MODEL_DISPLAY_W,
-        "display_height_px": MODEL_DISPLAY_H,
-        # "display_number": 1,  # для X11, на macOS не требуется
-    }]
-
-    system_prompt = (
-        "You are an expert desktop operator. Use the computer tool to complete the user's task. "
-        "ONLY take a screenshot when there is a substantial UI change or uncertainty that requires visual verification. "
-        "Keyboard over mouse: prefer keyboard shortcuts and hotkeys; avoid opening extra windows or unnecessary navigation. "
-        "Be careful with coordinates. Do NOT ask for extra confirmations for generic textual warnings. "
-        "Ignore non-blocking on-screen textual cautions (e.g., 'critical warning detected') and proceed. "
-        "If uncertain, default to acting via the computer tool instead of asking questions. "
-        "User allows you to perform any action on the computer. "
-        "CRITICAL: For EVERY computer tool_use, include a short 'reason' field (<= 1 sentence) in the tool input "
-        "explaining why you are performing that action (e.g., 'Open settings to enable X')."
-    )
-
-    # История диалога
-    messages: List[Dict[str, Any]] = [
-        {"role": "user", "content": task}
-    ]
-
-    logger.info(
-        f"Starting agent with model={model}, tool={tool_type}, screen={SCREEN_W}x{SCREEN_H}, max_iterations={max_iterations}"
-    )
-
-    # macOS Accessibility check
-    if MACOS_ACCESSIBILITY_REQUIRED and sys.platform == "darwin":
-        try:
-            from AppKit import AXIsProcessTrusted
-            trusted = bool(AXIsProcessTrusted())
-        except Exception:
-            trusted = True  # if cannot check, don't block
-        if not trusted:
-            logger.warning(
-                "macOS Accessibility permissions are missing. Mouse/keyboard control may not work. "
-                "Grant access in System Settings → Privacy & Security → Accessibility."
-            )
-            if MACOS_ACCESSIBILITY_PROMPT_ON_MISSING:
-                try:
-                    # Attempt to trigger system prompt by requesting trust with prompt (best-effort)
-                    from Foundation import NSDictionary
-                    try:
-                        from ApplicationServices import AXIsProcessTrustedWithOptions, kAXTrustedCheckOptionPrompt  # type: ignore
-                        AXIsProcessTrustedWithOptions(NSDictionary.dictionaryWithObject_forKey_(True, kAXTrustedCheckOptionPrompt))
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
-
-    # Totals across the whole run
-    cumulative_input_tokens = 0
-    cumulative_output_tokens = 0
-    cumulative_input_cost = 0.0
-    cumulative_output_cost = 0.0
-
-    def _log_usage_summary() -> None:
-        try:
-            total_cost = cumulative_input_cost + cumulative_output_cost
-            logger.info(
-                "📊 Usage total in=%s out=%s cost=$%.6f (input=$%.6f, output=$%.6f)",
-                cumulative_input_tokens,
-                cumulative_output_tokens,
-                total_cost,
-                cumulative_input_cost,
-                cumulative_output_cost,
-            )
-        except Exception:
-            pass
-
-    # Gentle auto-nudges to continue when model answers with text instead of using the tool
-    no_tool_use_nudges_remaining = 2
-
-    optimizer = ConversationOptimizer()
-    pending_action: str | None = None
-
-    for iteration in range(1, max_iterations + 1):
-        logger.info(f"Iteration {iteration}/{max_iterations}: requesting model response...")
-        # 429 graceful retry with exponential backoff
-        resp = None
-        last_error: Exception | None = None
-        for attempt in range(1, API_MAX_RETRIES + 1):
-            try:
-                dyn_max = optimizer.choose_max_tokens(pending_action)
-                resp = client.beta.messages.create(
-                    model=model,
-                    max_tokens=int(dyn_max or MAX_TOKENS),
-                    tools=tools,
-                    messages=messages,
-                    betas=[beta_flag],
-                    # thinking={"type": "enabled", "budget_tokens": 1024},
-                    system=system_prompt,
-                    tool_choice={"type": "auto", "disable_parallel_tool_use": (not bool(ALLOW_PARALLEL_TOOL_USE))},
-                )
-                break
-            except httpx.HTTPStatusError as e:
-                last_error = e
-                status = getattr(e.response, "status_code", None)
-                if status == 429 and attempt < API_MAX_RETRIES:
-                    retry_after_hdr = None
-                    try:
-                        retry_after_hdr = e.response.headers.get("retry-after")
-                    except Exception:
-                        retry_after_hdr = None
-                    if retry_after_hdr:
-                        try:
-                            backoff = float(retry_after_hdr)
-                        except Exception:
-                            backoff = API_BACKOFF_BASE_SECONDS
-                    else:
-                        backoff = min(
-                            API_BACKOFF_MAX_SECONDS,
-                            API_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)) + random.uniform(0, API_BACKOFF_JITTER_SECONDS),
-                        )
-                    logger.warning(
-                        f"Rate limited (429). Attempt {attempt}/{API_MAX_RETRIES - 1}. Waiting {backoff:.2f}s before retry..."
-                    )
-                    time.sleep(backoff)
-                    continue
-                # Не ретраебл или попытки исчерпаны
-                break
-            except KeyboardInterrupt:
-                logger.info("Interrupted by user during API call. Stopping gracefully.")
-                _log_usage_summary()
-                return
-            except Exception as e:
-                last_error = e
-                break
-
-        if resp is None:
-            # Красивый вывод ошибки без стека
-            if isinstance(last_error, httpx.HTTPStatusError):
-                status = getattr(last_error.response, "status_code", None)
-                if status == 429:
-                    logger.error(
-                        "Too many requests (429). We've reached the API rate limit. "
-                        "Please wait a bit and try again. You can reduce request frequency or enable --debug to inspect details."
-                    )
-                    _log_usage_summary()
-                    return
-                else:
-                    logger.error(f"HTTP error from API: {status}. Aborting this run gracefully.")
-                    _log_usage_summary()
-                    return
-            elif last_error is not None:
-                logger.error(f"API call failed: {last_error}. Aborting gracefully.")
-                _log_usage_summary()
-                return
-
-        # сохраняем ассистентский ответ в историю
-        messages.append({"role": "assistant", "content": resp.content})
-
-        # Извлекаем usage и считаем стоимость для этой итерации
-        in_tokens = 0
-        out_tokens = 0
-        try:
-            usage = getattr(resp, "usage", None)
-            if usage is not None:
-                in_tokens = int(getattr(usage, "input_tokens", 0) or 0)
-                out_tokens = int(getattr(usage, "output_tokens", 0) or 0)
-        except Exception:
-            in_tokens, out_tokens = 0, 0
-        input_cost, output_cost, total_cost, tier = estimate_cost(model, in_tokens, out_tokens)
-
-        cumulative_input_tokens += in_tokens
-        cumulative_output_tokens += out_tokens
-        cumulative_input_cost += input_cost
-        cumulative_output_cost += output_cost
-
-        # Опционально логируем usage/cost на каждой итерации
-        try:
-            from config.settings import USAGE_LOG_EACH_ITERATION
-        except Exception:
-            USAGE_LOG_EACH_ITERATION = False
-        if USAGE_LOG_EACH_ITERATION:
-            try:
-                logger.info(
-                    "📈 Usage iter in=%s out=%s cost=$%.6f (input=$%.6f, output=$%.6f)",
-                    in_tokens,
-                    out_tokens,
-                    (input_cost + output_cost),
-                    input_cost,
-                    output_cost,
-                )
-            except Exception:
-                pass
-
-        # Обработка контента: соберём tool_use
-        tool_results_blocks: List[Dict[str, Any]] = []
-        pending_action = None
-        for block in resp.content:
-            btype = getattr(block, "type", None)
-            if btype == "thinking" or btype == "text":
-                continue
-            if getattr(block, "type", None) == "tool_use" and block.name == "computer":
-                tool_input = block.input or {}
-                # По умолчанию считаем, что координаты приходят в модельном пространстве (виртуальный дисплей)
-                # или используем авто-детекцию. Это устраняет смещения при VIRTUAL_DISPLAY_* < физического экрана.
-                try:
-                    tool_input.setdefault("coordinate_space", "auto")
-                except Exception:
-                    pass
-                action = tool_input.get("action")
-                pending_action = action if isinstance(action, str) else None
-                if not action:
-                    logger.warning("tool_use block missing 'action'")
-                    tool_results_blocks.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": [{"type": "text", "text": "Error: missing 'action'"}],
-                        "is_error": True,
-                    })
-                    continue
-                logger.info(f"🎬 Executing tool action: {action}")
-                content_blocks = handle_computer_action(action, tool_input)
-                is_error = False
-                try:
-                    if content_blocks and isinstance(content_blocks[0], dict):
-                        txt = str(content_blocks[0].get("text", "")).lower()
-                        if txt.startswith("error"):
-                            is_error = True
-                except Exception:
-                    pass
-                tool_results_blocks.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": content_blocks,
-                    "is_error": is_error,
-                })
-
-        if not tool_results_blocks:
-            final_texts = [c.text for c in resp.content if getattr(c, "type", None) == "text"]
-            logger.info("No tool uses in response; finishing with final text output")
-            _log_usage_summary()
-            print("\n".join(final_texts).strip())
-            try:
-                play_done_sound()
-            except Exception:
-                pass
-            return
-
-        # Добавляем результаты как следующий user-месседж
-        logger.debug(f"Appending {len(tool_results_blocks)} tool_result blocks back to the model")
-        messages.append({"role": "user", "content": tool_results_blocks})
-
-        # Суммаризация и обрезка истории
-        trimmed, summary = optimizer.summarize_history(messages)
-        if trimmed is not messages:
-            messages = trimmed
-            if summary:
-                system_prompt = system_prompt + "\n\nContext summary (truncated):\n" + summary
-
-    logger.warning(f"Stopped after {max_iterations} iterations to avoid infinite loop.")
-    _log_usage_summary()
-    try:
-        play_done_sound()
-    except Exception:
-        pass
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Anthropic Computer Use agent (macOS).")
+    parser = argparse.ArgumentParser(description="Universal Computer Use agent (macOS).")
     parser.add_argument("--task", type=str, required=False,
                         help="Что сделать при запуске (естественным языком).")
     parser.add_argument("--debug", action="store_true", help="Включить подробные логи (DEBUG)")
+    # Legacy flags removed; only new orchestrator path is supported
+    parser.add_argument("--provider", type=str, required=False, help="Провайдер LLM: anthropic|openai")
     args = parser.parse_args()
 
     # Логгер до начала работы
@@ -1003,4 +764,48 @@ if __name__ == "__main__":
         print("Введите задачу (пример: 'Открой Chrome, зайди на google.com, выбери вторую страницу результатов поиска'):")
         task_text = sys.stdin.readline().strip()
 
-    run_agent(task_text)
+    from llm.types import ToolDescriptor
+    from di import create_container
+    from orchestrator import Orchestrator
+    inj = create_container(args.provider)
+    from llm.interfaces import LLMClient as _LLMClient
+    from tools.registry import ToolRegistry as _ToolRegistry
+    client = inj.get(_LLMClient)
+    tools = inj.get(_ToolRegistry)
+    orch = Orchestrator(client, tools)
+    # Build tool descriptors for computer
+    tool_descs = [
+        ToolDescriptor(
+            name="computer",
+            kind="computer_use",
+            params={
+                "type": COMPUTER_TOOL_TYPE,
+                "display_width_px": MODEL_DISPLAY_W,
+                "display_height_px": MODEL_DISPLAY_H,
+            },
+        )
+    ]
+    system_prompt = (
+        "You are an expert desktop operator. Use the computer tool to complete the user's task. "
+        "ONLY take a screenshot when needed. Prefer keyboard shortcuts. "
+        "NEVER send empty key combos; always include a valid key or hotkey like 'cmd+space'. "
+        "When using key/hold_key, provide 'key' or 'keys' as a non-empty string (e.g., 'cmd+space', 'ctrl+c'). "
+        "For any action with coordinates, set coordinate_space='auto' in tool input."
+    )
+    msgs = orch.run(task_text, tool_descs, system_prompt, max_iterations=30)
+    # Print final assistant text(s)
+    final_texts = []
+    for m in msgs:
+        if getattr(m, "role", None) == "assistant":
+            for p in (getattr(m, "content", []) or []):
+                try:
+                    if getattr(p, "type", None) == "text":
+                        final_texts.append(str(getattr(p, "text", "")))
+                except Exception:
+                    pass
+    if final_texts:
+        print("\n".join(final_texts).strip())
+    try:
+        play_done_sound()
+    except Exception:
+        pass
