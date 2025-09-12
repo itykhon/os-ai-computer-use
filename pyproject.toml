@@ -1,0 +1,13 @@
+[workspace]
+members = [
+  "packages/core",
+  "packages/cli",
+  "packages/os",
+  "packages/os-macos",
+  "packages/llm",
+  "packages/llm_anthropic",
+  "packages/llm_openai",
+]
+
+[tool.uv]
+package = false
