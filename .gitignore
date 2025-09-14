@@ -21,3 +21,9 @@ __pycache__/
 .qoder/rules/byterover-rules.md
 .augment/rules/byterover-rules.md
 
+# Build artifacts
+/build/
+/dist/
+/*.spec
+/packaging/*.spec
+

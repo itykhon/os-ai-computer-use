@@ -32,6 +32,17 @@ def build_platform(explicit: Optional[str] = None) -> PlatformDrivers:
         if factory is None:
             raise RuntimeError("macOS drivers not installed: install os_ai_os_macos package")
         return factory()
+    if sysname == "windows":
+        factory = _load_entry_point("os_ai_os.drivers", "windows")
+        if factory is None:
+            try:
+                mod = importlib.import_module("os_ai_os_windows.drivers")
+                factory = getattr(mod, "make_drivers", None)
+            except Exception:
+                factory = None
+        if factory is None:
+            raise RuntimeError("Windows drivers not installed: install os_ai_os_windows package")
+        return factory()
     raise RuntimeError(f"Unsupported platform: {sysname}")
 
 

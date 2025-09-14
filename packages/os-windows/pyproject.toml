@@ -1,0 +1,22 @@
+[project]
+name = "os_ai_os_windows"
+version = "0.1.0"
+description = "Windows drivers for os_ai_os ports"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+  "pyautogui>=0.9.54",
+  "Pillow>=10",
+  "os_ai_os>=0.1.0",
+]
+
+[tool.uv]
+package = true
+
+[project.entry-points."os_ai_os.drivers"]
+windows = "os_ai_os_windows.drivers:make_drivers"
+

@@ -1,7 +1,7 @@
 PY?=$(shell which python)
 PIP?=$(shell which pip)
 
-.PHONY: venv install lint test unit itest itest-local keyboard click macos-perms macos-open-accessibility macos-open-input-monitoring macos-open-screen-recording dev-install
+.PHONY: venv install lint test unit itest itest-local keyboard click macos-perms macos-open-accessibility macos-open-input-monitoring macos-open-screen-recording dev-install build-macos-bundle
 
 venv:
 	@echo "(optional) manage your venv outside Makefile"
@@ -13,6 +13,7 @@ dev-install:
 	# Install local packages in editable mode for mono-repo dev
 	$(PY) -m pip install -e packages/os/src
 	$(PY) -m pip install -e packages/os-macos/src
+	$(PY) -m pip install -e packages/os-windows/src
 	$(PY) -m pip install -e packages/core/src
 
 lint:
@@ -43,5 +44,11 @@ macos-open-screen-recording:
 	open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
 
 macos-perms: macos-open-accessibility macos-open-input-monitoring macos-open-screen-recording
+
+build-macos-bundle:
+	# Build single-file CLI for macOS using PyInstaller
+	$(PY) -m pip install pyinstaller
+	$(PY) -m PyInstaller packaging/pyinstaller-macos.spec
+	@echo "Bundle at: dist/agent_core/agent_core"
 
 
