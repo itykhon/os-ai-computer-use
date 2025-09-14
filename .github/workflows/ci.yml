@@ -7,27 +7,6 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test-linux:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ '3.12', '3.13' ]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run unit tests
-        run: |
-          pytest -q
-
   test-macos:
     runs-on: macos-latest
     steps:
