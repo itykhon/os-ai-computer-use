@@ -1,13 +1,19 @@
 PY?=$(shell which python)
 PIP?=$(shell which pip)
 
-.PHONY: venv install lint test unit itest itest-local keyboard click macos-perms macos-open-accessibility macos-open-input-monitoring macos-open-screen-recording
+.PHONY: venv install lint test unit itest itest-local keyboard click macos-perms macos-open-accessibility macos-open-input-monitoring macos-open-screen-recording dev-install
 
 venv:
 	@echo "(optional) manage your venv outside Makefile"
 
 install:
 	$(PY) -m pip install -r requirements.txt
+
+dev-install:
+	# Install local packages in editable mode for mono-repo dev
+	$(PY) -m pip install -e packages/os/src
+	$(PY) -m pip install -e packages/os-macos/src
+	$(PY) -m pip install -e packages/core/src
 
 lint:
 	pytest -q -k "not integration_os"

@@ -33,18 +33,16 @@ from os_ai_os.config import (
     MIN_MOVE_DURATION,
     MAX_MOVE_DURATION,
 )
-from os_ai_os_macos.config import (
-    PREMOVE_HIGHLIGHT_DEFAULT_DURATION,
-    USE_QUARTZ_SCREENSHOT,
-)
-from os_ai_os_macos.overlay import highlight_position, process_overlay_events
-from os_ai_os_macos.sound import play_click_sound, play_done_sound
-from os_ai_os_macos.keyboard import press_enter_mac
+from os_ai_os.config import PREMOVE_HIGHLIGHT_DEFAULT_DURATION
+from os_ai_os.api import get_drivers
 
 
 # Initialize PyAutoGUI basic settings
 pyautogui.PAUSE = PYAUTO_PAUSE_SECONDS
 pyautogui.FAILSAFE = PYAUTO_FAILSAFE
+
+# Exposed for test shim to read last saved screenshot path via main
+LAST_SCREENSHOT_PATH: str = ""
 
 
 # ---- Geometry setup (duplicated from legacy main, kept intact) ----
@@ -153,35 +151,10 @@ def computer_tool_handler(args: Dict[str, Any]) -> List[Dict[str, Any]]:
     return handle_computer_action(action, args)
 
 
-def _capture_quartz_image():
+def _capture_driver_image():
     try:
-        from Quartz import (
-            CGDisplayCreateImage,
-            CGMainDisplayID,
-            CGImageGetWidth,
-            CGImageGetHeight,
-            CGImageGetDataProvider,
-            CGImageGetBytesPerRow,
-            CGDataProviderCopyData,
-        )
-        from PIL import Image  # type: ignore
-        image_ref = CGDisplayCreateImage(CGMainDisplayID())
-        if not image_ref:
-            return None
-        width = int(CGImageGetWidth(image_ref))
-        height = int(CGImageGetHeight(image_ref))
-        provider = CGImageGetDataProvider(image_ref)
-        data = CGDataProviderCopyData(provider)
-        buf = bytes(data)
-        try:
-            bytes_per_row = int(CGImageGetBytesPerRow(image_ref))
-        except Exception:
-            bytes_per_row = width * 4
-        try:
-            img = Image.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", bytes_per_row, 1)
-        except Exception:
-            img = Image.frombytes("RGBA", (width, height), buf, "raw", "BGRA", bytes_per_row, 1)
-        return img
+        drivers = get_drivers()
+        return drivers.screen.screenshot()
     except Exception:
         return None
 
@@ -205,11 +178,7 @@ def _find_project_root(start_dir: str) -> str:
 
 
 def b64_image_from_screenshot() -> Dict[str, Any]:
-    img = None
-    if USE_QUARTZ_SCREENSHOT:
-        img = _capture_quartz_image()
-    if img is None:
-        img = pyautogui.screenshot(region=(0, 0, SCREEN_W, SCREEN_H))
+    img = _capture_driver_image() or pyautogui.screenshot(region=(0, 0, SCREEN_W, SCREEN_H))
 
     try:
         from PIL import Image  # type: ignore
@@ -248,6 +217,11 @@ def b64_image_from_screenshot() -> Dict[str, Any]:
             else:
                 img.save(file_path, format="PNG")
             logging.getLogger(LOGGER_NAME).info(f"Saved screenshot: {file_path}")
+            try:
+                global LAST_SCREENSHOT_PATH
+                LAST_SCREENSHOT_PATH = file_path
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -369,12 +343,12 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
         dur = _compute_duration_to(x, y, params, default=0.35, speed_pps=DEFAULT_MOVE_SPEED_PPS)
         try:
             try:
-                highlight_position(x, y, duration=PREMOVE_HIGHLIGHT_DEFAULT_DURATION)
+                get_drivers().overlay.highlight(x, y, duration=PREMOVE_HIGHLIGHT_DEFAULT_DURATION)
             except Exception:
                 pass
             pyautogui.moveTo(x, y, duration=dur, tween=tween_fn)
             try:
-                process_overlay_events()
+                get_drivers().overlay.process_events()
             except Exception:
                 pass
             if POST_MOVE_VERIFY:
@@ -426,7 +400,7 @@ def handle_computer_action(action: str, params: Dict[str, Any]) -> List[Dict[str
                 logger.warning("PyAutoGUI fail-safe triggered during click at current position; skipping click")
                 return [{"type": "text", "text": "click skipped: fail-safe"}]
         try:
-            play_click_sound()
+            get_drivers().sound.play_click()
         except Exception:
             pass
         blocks: List[Dict[str, Any]] = []

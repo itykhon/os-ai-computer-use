@@ -16,3 +16,6 @@ dependencies = [
 
 [tool.uv]
 package = true
+
+[project.entry-points."os_ai_os.drivers"]
+darwin = "os_ai_os_macos.drivers:make_drivers"

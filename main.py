@@ -12,25 +12,41 @@ for _src_dir in glob.glob(os.path.join(_ROOT, "packages", "*", "src")):
         sys.path.insert(0, _src_dir)
 
 from os_ai_core.tools import computer as _computer  # real implementation
-from os_ai_os_macos.keyboard import press_enter_mac as _press_enter_mac
+from os_ai_os.api import get_drivers
 
 # Expose pyautogui used by the computer tool so test monkeypatching affects real calls
 pyautogui = _computer.pyautogui  # type: ignore
 
 
 def press_enter_mac():
-    return _press_enter_mac()
+    try:
+        get_drivers().keyboard.press_enter()
+    except Exception:
+        try:
+            pyautogui.press("enter")  # type: ignore
+        except Exception:
+            pass
 
 
 def handle_computer_action(action, params):  # type: ignore
     # Ensure computer module uses (possibly monkeypatched) press_enter_mac from this module
     _computer.press_enter_mac = press_enter_mac  # type: ignore
-    return _computer.handle_computer_action(action, params)
+    res = _computer.handle_computer_action(action, params)
+    try:
+        globals()["LAST_SCREENSHOT_PATH"] = getattr(_computer, "LAST_SCREENSHOT_PATH", "")
+    except Exception:
+        pass
+    return res
 
 
 if __name__ == "__main__":
     from os_ai_cli.main import main as cli_main
-    raise SystemExit(cli_main())
+    try:
+        code = cli_main()
+    except KeyboardInterrupt:
+        print("\nInterrupted by user (Ctrl+C)")
+        code = 130
+    raise SystemExit(code)
 
 
 

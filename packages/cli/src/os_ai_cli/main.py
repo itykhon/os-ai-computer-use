@@ -56,7 +56,11 @@ def main() -> int:
         "For any action with coordinates, set coordinate_space='auto' in tool input."
     )
 
-    msgs = orch.run(task_text, tool_descs, system_prompt, max_iterations=30)
+    try:
+        msgs = orch.run(task_text, tool_descs, system_prompt, max_iterations=30)
+    except KeyboardInterrupt:
+        print("\nInterrupted by user (Ctrl+C)")
+        return 130
 
     final_texts = []
     for m in msgs:
