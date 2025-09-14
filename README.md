@@ -2,6 +2,23 @@
 
 [![CI](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml/badge.svg)](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml)
 
+## Table of Contents
+- [OS AI Computer Use](#os-ai-computer-use)
+  - [Table of Contents](#table-of-contents)
+  - [Installation \& Setup](#installation--setup)
+  - [Quick start](#quick-start)
+    - [CLI Examples](#cli-examples)
+  - [Features](#features)
+  - [Supported Platforms](#supported-platforms)
+  - [Configuration (config/settings.py)](#configuration-configsettingspy)
+  - [Tool input (API)](#tool-input-api)
+  - [Tests](#tests)
+  - [Flutter integration](#flutter-integration)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Troubleshooting](#troubleshooting)
+  - [Contact](#contact)
+
 Local agent for desktop automation. It currently integrates Anthropic Computer Use (Claude) but is architected to be provider‑agnostic: the LLM layer is abstracted behind `LLMClient`, so OpenAI Computer Use (and others) can be added with minimal changes.
 
 What this project is:
