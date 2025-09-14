@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/os_ai_os_macos/config.py
+src/os_ai_os_macos/keyboard.py
+src/os_ai_os_macos/os_harness.py
+src/os_ai_os_macos/os_runner.py
+src/os_ai_os_macos/overlay.py
+src/os_ai_os_macos/sound.py
+src/os_ai_os_macos.egg-info/PKG-INFO
+src/os_ai_os_macos.egg-info/SOURCES.txt
+src/os_ai_os_macos.egg-info/dependency_links.txt
+src/os_ai_os_macos.egg-info/requires.txt
+src/os_ai_os_macos.egg-info/top_level.txt

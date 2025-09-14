@@ -8,5 +8,9 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 
+dependencies = [
+  "pyautogui>=0.9.54",
+]
+
 [tool.uv]
 package = true

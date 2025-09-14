@@ -5,9 +5,9 @@ from typing import Any, Dict, List, Optional
 
 # We avoid importing openai SDK now to not add dependency; this is a skeleton.
 
-from config.settings import OPENAI_MODEL_NAME
-from llm.interfaces import LLMClient
-from llm.types import Message, ToolDescriptor, LLMResponse, ToolResult, Usage, TextPart, ImagePart, ToolCall
+from os_ai_llm_openai.config import OPENAI_MODEL_NAME
+from os_ai_llm.interfaces import LLMClient
+from os_ai_llm.types import Message, ToolDescriptor, LLMResponse, ToolResult, Usage, TextPart, ImagePart, ToolCall
 
 
 class OpenAIClient(LLMClient):

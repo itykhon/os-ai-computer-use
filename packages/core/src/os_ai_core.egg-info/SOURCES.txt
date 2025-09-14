@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+src/os_ai_core/config.py
+src/os_ai_core/di.py
+src/os_ai_core/orchestrator.py
+src/os_ai_core.egg-info/PKG-INFO
+src/os_ai_core.egg-info/SOURCES.txt
+src/os_ai_core.egg-info/dependency_links.txt
+src/os_ai_core.egg-info/requires.txt
+src/os_ai_core.egg-info/top_level.txt
+src/os_ai_core/tools/computer.py
+src/os_ai_core/tools/registry.py
+src/os_ai_core/utils/conversation_optimizer.py
+src/os_ai_core/utils/costs.py
+src/os_ai_core/utils/logger.py

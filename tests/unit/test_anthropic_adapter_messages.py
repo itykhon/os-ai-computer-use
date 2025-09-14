@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from llm.adapters_anthropic import AnthropicClient
-from llm.types import Message, TextPart, ToolDescriptor
+from os_ai_llm_anthropic.adapters_anthropic import AnthropicClient
+from os_ai_llm.types import Message, TextPart, ToolDescriptor
 import os
 import pytest
 
@@ -34,7 +34,7 @@ class DummyAnthropic:
 def test_anthropic_adapter_builds_valid_messages(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
     # Monkeypatch anthropic class to our dummy
-    import llm.adapters_anthropic as aa
+    import os_ai_llm_anthropic.adapters_anthropic as aa
     aa.anthropic.Anthropic = DummyAnthropic  # type: ignore
 
     client = AnthropicClient()

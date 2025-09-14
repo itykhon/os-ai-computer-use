@@ -1,0 +1,2 @@
+[console_scripts]
+os-ai = os_ai_cli.main:main

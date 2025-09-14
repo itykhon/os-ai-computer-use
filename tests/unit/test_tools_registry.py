@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tools.registry import ToolRegistry
+from os_ai_core.tools.registry import ToolRegistry
 
 
 def test_tools_registry_normalizes_text_and_image_blocks():

@@ -4,12 +4,12 @@ from typing import Optional
 
 import injector
 
-from config.settings import LLM_PROVIDER
-from llm.interfaces import LLMClient
-from llm.adapters_anthropic import AnthropicClient
-from llm.adapters_openai import OpenAIClient
-from tools.registry import ToolRegistry
-from tools.computer import computer_tool_handler
+from os_ai_llm.config import LLM_PROVIDER
+from os_ai_llm.interfaces import LLMClient
+from os_ai_llm_anthropic.adapters_anthropic import AnthropicClient
+from os_ai_llm_openai.adapters_openai import OpenAIClient
+from os_ai_core.tools.registry import ToolRegistry
+from os_ai_core.tools.computer import computer_tool_handler
 
 
 class LLMModule(injector.Module):

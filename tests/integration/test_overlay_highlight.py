@@ -51,8 +51,8 @@ def _screencap_region(x0, y0, x1, y1):
 
 @pytest.mark.skipif(platform.system() != "Darwin" or os.environ.get("SKIP_OVERLAY_TESTS") == "1", reason="Mac-only GUI test or skipped by env")
 def test_overlay_highlight_visible_near_target_or_mirrored():
-    from config.settings import PREMOVE_HIGHLIGHT_RADIUS
-    from utils.overlay import highlight_position, get_highlight_state
+    from os_ai_os_macos.config import PREMOVE_HIGHLIGHT_RADIUS
+    from os_ai_os_macos.overlay import highlight_position, get_highlight_state
 
     screen_w, screen_h = pyautogui.size()
     target = (screen_w // 2, screen_h // 2)
@@ -75,7 +75,7 @@ def test_overlay_highlight_visible_near_target_or_mirrored():
     y1 = min(screen_h, target[1] + radius)
     # Try capturing overlay window directly; fallback to full screenshot region
     try:
-        from utils.overlay import capture_overlay_region
+        from os_ai_os_macos.overlay import capture_overlay_region
         img = capture_overlay_region(x0, y0, x1, y1)
     except Exception:
         img = None
@@ -106,7 +106,7 @@ def test_overlay_highlight_visible_near_target_or_mirrored():
 
     # Diagnostic print to help understand failures
     try:
-        from utils.overlay import _overlay
+        from os_ai_os_macos.overlay import _overlay
         dbg = getattr(_overlay, "_last_debug", None)
         print(f"[overlay debug] {dbg}")
     except Exception:
@@ -120,8 +120,8 @@ def test_overlay_highlight_visible_near_target_or_mirrored():
 
 @pytest.mark.skipif(platform.system() != "Darwin" or os.environ.get("SKIP_OVERLAY_TESTS") == "1", reason="Mac-only GUI test or skipped by env")
 def test_overlay_highlight_alignment_exact():
-    from config.settings import PREMOVE_HIGHLIGHT_RADIUS
-    from utils.overlay import highlight_position
+    from os_ai_os_macos.config import PREMOVE_HIGHLIGHT_RADIUS
+    from os_ai_os_macos.overlay import highlight_position
 
     screen_w, screen_h = pyautogui.size()
     target = (min(screen_w - 40, max(40, screen_w // 3)), min(screen_h - 40, max(40, screen_h // 3)))
@@ -133,7 +133,7 @@ def test_overlay_highlight_alignment_exact():
 
     # Prefer overlay-only capture to avoid background noise
     try:
-        from utils.overlay import capture_overlay_region
+        from os_ai_os_macos.overlay import capture_overlay_region
         radius = PREMOVE_HIGHLIGHT_RADIUS + 24
         x0 = max(0, target[0] - radius)
         y0 = max(0, target[1] - radius)
@@ -147,7 +147,7 @@ def test_overlay_highlight_alignment_exact():
     red_count = _count_red_pixels(img, target[0], target[1], PREMOVE_HIGHLIGHT_RADIUS + 6)
     t.join(timeout=1.0)
     try:
-        from utils.overlay import _overlay
+        from os_ai_os_macos.overlay import _overlay
         dbg = getattr(_overlay, "_last_debug", None)
         print(f"[overlay debug] {dbg}")
     except Exception:

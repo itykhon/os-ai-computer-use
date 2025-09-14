@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Any
 
-from llm.types import ToolCall, ToolResult, TextPart, ImagePart
+from os_ai_llm.types import ToolCall, ToolResult, TextPart, ImagePart
 
 
 class ToolRegistry:

@@ -4,10 +4,10 @@ from typing import List
 
 import pytest
 
-from llm.interfaces import LLMClient
-from llm.types import Message, ToolDescriptor, LLMResponse, ToolCall, Usage, TextPart
-from tools.registry import ToolRegistry
-from orchestrator import Orchestrator
+from os_ai_llm.interfaces import LLMClient
+from os_ai_llm.types import Message, ToolDescriptor, LLMResponse, ToolCall, Usage, TextPart
+from os_ai_core.tools.registry import ToolRegistry
+from os_ai_core.orchestrator import Orchestrator
 
 
 class DummyLLM(LLMClient):

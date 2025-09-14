@@ -8,5 +8,11 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 
+dependencies = [
+  "pyobjc>=11.0",
+  "Pillow>=10",
+  "os_ai_os>=0.1.0",
+]
+
 [tool.uv]
 package = true

@@ -1,0 +1,3 @@
+pyobjc>=11.0
+Pillow>=10
+os_ai_os>=0.1.0

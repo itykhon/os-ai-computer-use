@@ -7,19 +7,21 @@ import json
 import anthropic
 import httpx
 
-from config.settings import (
+from os_ai_llm_anthropic.config import (
     MODEL_NAME,
     COMPUTER_TOOL_TYPE,
     COMPUTER_BETA_FLAG,
+)
+from os_ai_llm.config import (
     API_REQUEST_TIMEOUT_SECONDS,
     API_MAX_RETRIES,
     API_BACKOFF_BASE_SECONDS,
     API_BACKOFF_MAX_SECONDS,
     API_BACKOFF_JITTER_SECONDS,
-    LOGGER_NAME,
 )
-from llm.interfaces import LLMClient
-from llm.types import (
+from os_ai_core.config import LOGGER_NAME
+from os_ai_llm.interfaces import LLMClient
+from os_ai_llm.types import (
     Message,
     ToolDescriptor,
     LLMResponse,
@@ -37,7 +39,8 @@ class AnthropicClient(LLMClient):
         if not key:
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
         try:
-            self._client = anthropic.Anthropic(api_key=key, max_retries=0)  # type: ignore
+            # Set global timeout to avoid indefinite hangs at transport level
+            self._client = anthropic.Anthropic(api_key=key, max_retries=0, timeout=httpx.Timeout(float(API_REQUEST_TIMEOUT_SECONDS)))  # type: ignore
         except Exception:
             self._client = anthropic.Anthropic(api_key=key)
         self._model = model_name or MODEL_NAME

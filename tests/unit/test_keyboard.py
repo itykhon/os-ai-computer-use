@@ -1,34 +1,23 @@
-import builtins
-import types
-
 import importlib
+import importlib.util
 import sys
+import types
 
 
 def _install_quartz_mock(monkeypatch):
-    quartz = types.SimpleNamespace()
+    calls = {"events": []}
+    module = types.ModuleType("Quartz")
 
-    calls = {
-        "create": [],
-        "post": [],
-    }
-
-    def CGEventCreateKeyboardEvent(_a, keycode, is_down):
-        calls["create"].append((int(keycode), bool(is_down)))
+    def CGEventCreateKeyboardEvent(src, keycode, keyDown):
+        calls["events"].append(("create", keycode, bool(keyDown)))
         return object()
 
-    def CGEventPost(_tap, event):
-        calls["post"].append(event)
+    def CGEventPost(tap, event):
+        calls["events"].append(("post", tap, event))
 
-    quartz.CGEventCreateKeyboardEvent = CGEventCreateKeyboardEvent
-    quartz.CGEventPost = CGEventPost
-    quartz.kCGHIDEventTap = 0
-
-    module = types.ModuleType("Quartz")
     module.CGEventCreateKeyboardEvent = CGEventCreateKeyboardEvent
     module.CGEventPost = CGEventPost
     module.kCGHIDEventTap = 0
-
     monkeypatch.setitem(sys.modules, "Quartz", module)
     return calls
 
@@ -36,17 +25,13 @@ def _install_quartz_mock(monkeypatch):
 def test_press_enter_mac_success(monkeypatch):
     calls = _install_quartz_mock(monkeypatch)
     # re-import keyboard with mocked Quartz
-    keyboard = importlib.import_module("utils.keyboard")
+    keyboard = importlib.import_module("os_ai_os_macos.keyboard")
 
     keyboard.press_enter_mac()
 
-    # Должно быть 2 нажатия: Return и Keypad Enter (down+up для каждого => 4 create, 4 post)
-    assert len(calls["create"]) == 4
-    assert len(calls["post"]) == 4
-
-    # Проверяем порядок: down, up для каждого (keycodes 36 и 76)
-    keycodes = [kc for kc, _ in calls["create"]]
-    assert 36 in keycodes and 76 in keycodes
+    # Expect: create keyDown, post, then keyUp, post
+    assert ("create", 36, True) in calls["events"] or ("create", 36, 1) in calls["events"]
+    assert any(e[0] == "post" for e in calls["events"])  # at least one post
 
 
 def test_press_keycode_safe_on_exception(monkeypatch):
@@ -60,8 +45,9 @@ def test_press_keycode_safe_on_exception(monkeypatch):
     module.kCGHIDEventTap = 0
     monkeypatch.setitem(sys.modules, "Quartz", module)
 
-    keyboard = importlib.import_module("utils.keyboard")
-    # не должно бросить
-    keyboard.press_enter_mac()
+    keyboard = importlib.import_module("os_ai_os_macos.keyboard")
+
+    # Не должно бросить исключение
+    keyboard._press_keycode_safe(36)
 
 

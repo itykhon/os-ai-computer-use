@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/os_ai_cli/main.py
+src/os_ai_cli.egg-info/PKG-INFO
+src/os_ai_cli.egg-info/SOURCES.txt
+src/os_ai_cli.egg-info/dependency_links.txt
+src/os_ai_cli.egg-info/entry_points.txt
+src/os_ai_cli.egg-info/requires.txt
+src/os_ai_cli.egg-info/top_level.txt

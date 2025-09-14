@@ -8,5 +8,13 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 
+# CLI depends on core to run orchestrator
+dependencies = [
+  "os_ai_core>=0.1.0",
+]
+
+[project.scripts]
+os-ai = "os_ai_cli.main:main"
+
 [tool.uv]
 package = true

@@ -5,11 +5,12 @@ import logging, json, sys
 import httpx
 import anthropic
 
-from llm.interfaces import LLMClient
-from llm.types import Message, ToolDescriptor, TextPart
-from utils.costs import estimate_cost
-from config.settings import MODEL_NAME, USAGE_LOG_EACH_ITERATION, LOGGER_NAME
-from tools.registry import ToolRegistry
+from os_ai_llm.interfaces import LLMClient
+from os_ai_llm.types import Message, ToolDescriptor, TextPart
+from os_ai_core.utils.costs import estimate_cost
+from os_ai_core.config import USAGE_LOG_EACH_ITERATION, LOGGER_NAME
+from os_ai_llm_anthropic.config import MODEL_NAME
+from os_ai_core.tools.registry import ToolRegistry
 
 
 class Orchestrator:
@@ -47,6 +48,9 @@ class Orchestrator:
                     logger.error(f"HTTP {status} from provider: {payload}")
                 except Exception:
                     logger.error("HTTP error from provider")
+                break
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.WriteTimeout) as e:
+                logger.error(f"HTTP timeout from provider: {e}")
                 break
             except Exception as e:
                 logger.error(f"Provider error: {e}")

@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/os_ai_os/config.py
+src/os_ai_os/virtual_mouse.py
+src/os_ai_os.egg-info/PKG-INFO
+src/os_ai_os.egg-info/SOURCES.txt
+src/os_ai_os.egg-info/dependency_links.txt
+src/os_ai_os.egg-info/requires.txt
+src/os_ai_os.egg-info/top_level.txt

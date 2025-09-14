@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/os_ai_llm_anthropic/adapters_anthropic.py
+src/os_ai_llm_anthropic/config.py
+src/os_ai_llm_anthropic.egg-info/PKG-INFO
+src/os_ai_llm_anthropic.egg-info/SOURCES.txt
+src/os_ai_llm_anthropic.egg-info/dependency_links.txt
+src/os_ai_llm_anthropic.egg-info/requires.txt
+src/os_ai_llm_anthropic.egg-info/top_level.txt
