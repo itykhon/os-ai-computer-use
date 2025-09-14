@@ -1,108 +1,167 @@
-# macOS Desktop Agent Core
+# OS AI Computer Use
 
-Локальный агент для автоматизации действий на macOS с использованием Anthropic Computer Use (Claude). Агент умеет:
+[![CI](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml/badge.svg)](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml)
 
-- двигать и кликать системным курсором с плавной анимацией
-- выполнять drag-and-drop (с тонкой настройкой шагов/задержек)
-- нажимать сочетания клавиш, надёжный Enter через Quartz
-- делать скриншоты (Quartz или PyAutoGUI), сохранять их на диск и возвращать в tool_result
-- рисовать «подсветку» цели перед перемещением (overlay поверх всех окон)
-- вести подробные логи, оценивать стоимость токенов, обрабатывать 429 (retry)
+Local agent for desktop automation. It currently integrates Anthropic Computer Use (Claude) but is architected to be provider‑agnostic: the LLM layer is abstracted behind `LLMClient`, so OpenAI Computer Use (and others) can be added with minimal changes.
 
-Проект рассчитан на локальный запуск и удобную интеграцию с Flutter как GUI (см. `docs/flutter.md`).
+What this project is:
+- A provider‑agnostic Computer Use agent with a stable tool interface
+- An OS‑agnostic execution layer using ports/drivers (macOS and Windows today)
+- A CLI you can bundle into a single executable for local use
+
+What it is not (yet):
+- A remote SaaS; this is a local agent
+- A finished set of drivers for every OS/desktop (Linux Wayland has limits for synthetic input)
+
+Highlights:
+- Smooth mouse movement, clicks, drag‑and‑drop with easing and timing controls
+- Reliable keyboard input (robust Enter on macOS), hotkeys and hold sequences
+- Screenshots (Quartz on macOS or PyAutoGUI fallback), on‑disk saving and base64 tool_result
+- Detailed logs and running cost estimation per iteration and total
+
+See provider architecture in `docs/architecture-universal-llm.md`, OS ports/drivers in `docs/os-architecture.md`, and packaging notes in `docs/ci-packaging.md`.
+
+## Installation & Setup
+
+Requirements:
+- macOS 13+ or Windows 10/11
+- Python 3.12+
+- Anthropic API key: `ANTHROPIC_API_KEY` (for now; OpenAI planned)
+
+Install:
+```bash
+# (optional) create and activate venv
+python -m venv .venv && source .venv/bin/activate
+
+# install dependencies
+make install
+
+# (optional) install local packages in editable mode (mono-repo dev)
+make dev-install
+```
+
+macOS permissions (for GUI automation):
+```bash
+make macos-perms  # opens System Settings → Privacy & Security panels
+```
+Grant permissions to Terminal/iTerm and your venv Python under: Accessibility, Input Monitoring, Screen Recording.
 
 ---
 
-## Быстрый старт
+## Quick start
 
-Требования:
-- macOS 13+
+Requirements:
+- macOS 13+ or Windows 10/11 (unit tests on any OS; GUI tests macOS/self‑hosted Windows)
 - Python 3.12+
-- Доступ к антропику (переменная окружения `ANTHROPIC_API_KEY`)
+- Anthropic API key (`ANTHROPIC_API_KEY`)
 
-Установка:
+Install:
 ```bash
-# (опционально) создать и активировать venv
+# (optional) create and activate venv
 python -m venv .venv && source .venv/bin/activate
 
-# установить зависимости
+# install top-level dependencies
 make install
 ```
 
-Разрешения macOS (GUI‑автоматизация требует прав):
+macOS permissions (required for GUI automation):
 ```bash
-# откроет панели System Settings → Privacy & Security
+# open System Settings → Privacy & Security panels
 make macos-perms
 ```
-Включите разрешения как минимум для вашего терминала (Terminal/iTerm) и для Python из текущего venv в разделах:
-- Accessibility
-- Input Monitoring
-- Screen Recording
+Grant permissions to Terminal/iTerm and your venv Python under: Accessibility, Input Monitoring, Screen Recording.
 
-Запуск агента:
+Run the agent (CLI):
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-python main.py --debug --task "Open Safari, search for 'macOS automation', scroll, make a screenshot"
+python main.py --provider anthropic --debug --task "Open Safari, search for 'macOS automation', scroll, make a screenshot"
 ```
 
-Полезные make-команды:
+### CLI Examples
+
 ```bash
-make install               # зависимости
-make test                  # юнит‑тесты
-RUN_CURSOR_TESTS=1 make itest  # интеграционные GUI‑тесты (требуют разрешений)
-make itest-local-keyboard  # ручной прогон клавиатуры
-make itest-local-click     # ручной прогон кликов/drag
+# 1) Open Chrome, search in Google, take a screenshot
+python main.py --provider anthropic --task "Open Chrome, focus the address bar, type google.com, search for 'computer use AI', open first result, scroll down and take a screenshot"
+
+# 2) Copy/paste workflow in a text editor
+python main.py --provider anthropic --task "Open TextEdit, create a new document, type 'Hello world!', select all and copy, create another document and paste"
+
+# 3) Window management + hotkeys
+python main.py --provider anthropic --task "Open System Settings, search for 'Privacy', navigate to Privacy & Security, disable GEO"
+
+# 4) Precise drag operations
+python main.py --provider anthropic --task "In Finder, open Downloads, switch to icon view, drag the first file to Desktop"
+```
+
+Useful make targets:
+```bash
+make install                     # install top-level dependencies
+make test                        # unit tests
+RUN_CURSOR_TESTS=1 make itest    # GUI integration tests (macOS; requires permissions)
+make itest-local-keyboard        # run keyboard harness
+make itest-local-click           # run click/drag harness
 ```
 
 ---
 
-## Основные возможности
+## Features
 
-- Плавное перемещение курсора: твины, длительности зависят от расстояния
-- Подсветка цели перед перемещением: overlay‑окна поверх всех Spaces/Fullscreen
-- Клики с модификаторами: `modifiers: "cmd+shift"` для кликов и down/up
-- Управление drag:
-  - `hold_before_ms`, `hold_after_ms`: задержки до/после удержания
-  - `steps`, `step_delay`: пошаговый drag для сложных UI (таблицы, dnd‑гриды)
-- Нажатие клавиш и хоткеев: `key`, `hold_key`; надёжный Enter через Quartz (`utils/keyboard.py`)
-- Скриншоты: Quartz‑захват или PyAutoGUI; downscale к «модельному» разрешению
-- Логи и стоимость: учёт токенов, суммарная стоимость; гибкая обработка 429
+- Smooth mouse motion: easing, distance‑based durations
+- Pre‑move highlight (macOS overlay across Spaces/Fullscreen)
+- Clicks with modifiers: `modifiers: "cmd+shift"` for click/down/up
+- Drag control: `hold_before_ms`, `hold_after_ms`, `steps`, `step_delay`
+- Keyboard input: `key`, `hold_key`; robust Enter on macOS via Quartz
+- Screenshots: Quartz (macOS) or PyAutoGUI fallback; optional downscale for model display
+- Logging and cost: per‑iteration and total usage/cost with 429 retry logic
+
+## Supported Platforms
+
+- OS‑agnostic execution: core depends only on OS ports; drivers are loaded per OS (see `docs/os-architecture.md`).
+- macOS (supported):
+  - Full driver set with overlay (AppKit), robust Enter (Quartz), screenshots (Quartz/PyAutoGUI), sounds (NSSound).
+  - Integration tests available; requires Accessibility, Input Monitoring, Screen Recording.
+  - Single‑file CLI bundle via `make build-macos-bundle`.
+- Windows (implemented, not yet integration‑tested):
+  - Drivers for mouse/keyboard/screen via PyAutoGUI; overlay/sound are no‑ops baseline.
+  - Unit contract tests exist; for GUI tests use a self‑hosted Windows runner (see `docs/windows-integration-testing.md`).
+  - Single‑file CLI bundle via `make build-windows-bundle` (build on Windows).
+- Linux: not provided out‑of‑the‑box. X11 can support synthetic input (XTest), while Wayland often restricts it. Contributions welcome.
 
 ---
 
-## Конфигурация (config/settings.py)
+## Configuration (config/settings.py)
 
-Ключевые параметры (неполный список):
-- Координаты/калибровка
+Key options (partial list):
+- Coordinates/calibration
   - `COORD_X_SCALE`, `COORD_Y_SCALE`, `COORD_X_OFFSET`, `COORD_Y_OFFSET`
-  - Пост‑коррекция позиции: `POST_MOVE_VERIFY`, `POST_MOVE_TOLERANCE_PX`, `POST_MOVE_CORRECTION_DURATION`
-- Скриншоты
-  - `USE_QUARTZ_SCREENSHOT`, `SCREENSHOT_MODE` (native|downscale)
+  - Post‑move correction: `POST_MOVE_VERIFY`, `POST_MOVE_TOLERANCE_PX`, `POST_MOVE_CORRECTION_DURATION`
+- Screenshots
+  - `SCREENSHOT_MODE` (native|downscale)
   - `VIRTUAL_DISPLAY_ENABLED`, `VIRTUAL_DISPLAY_WIDTH_PX`, `VIRTUAL_DISPLAY_HEIGHT_PX`
   - `SCREENSHOT_FORMAT` (PNG|JPEG), `SCREENSHOT_JPEG_QUALITY`
-- Подсветка
-  - `PREMOVE_HIGHLIGHT_ENABLED`, `PREMOVE_HIGHLIGHT_DEFAULT_DURATION`, `PREMOVE_HIGHLIGHT_RADIUS` и цвета
-- Модель/инструмент
+- Overlay
+  - `PREMOVE_HIGHLIGHT_ENABLED`, `PREMOVE_HIGHLIGHT_DEFAULT_DURATION`, `PREMOVE_HIGHLIGHT_RADIUS`, colors
+- Model/tool
   - `MODEL_NAME`, `COMPUTER_TOOL_TYPE`, `COMPUTER_BETA_FLAG`, `MAX_TOKENS`
-  - `ALLOW_PARALLEL_TOOL_USE` — параллельные tool_use от модели (по умолчанию выключено)
+  - `ALLOW_PARALLEL_TOOL_USE`
 
-См. файл для полного списка и комментариев.
+See file for full list and comments.
 
 ---
 
-## API действий (tool input)
+## Tool input (API)
 
-Агент ожидает от модели блок с полем `action` и параметрами:
+The agent expects blocks with `action` and parameters:
 
-- Перемещение курсора
+- Mouse movement
 ```json
 {"action":"mouse_move","coordinate":[x,y],"coordinate_space":"auto|screen|model","duration":0.35,"tween":"linear"}
 ```
-- Клики
+- Clicks
 ```json
 {"action":"left_click","coordinate":[x,y],"modifiers":"cmd+shift"}
 ```
-- Нажатие/удержание
+- Key press / hold
 ```json
 {"action":"key","key":"cmd+l"}
 {"action":"hold_key","key":"ctrl+shift+t"}
@@ -120,105 +179,92 @@ make itest-local-click     # ручной прогон кликов/drag
   "step_delay":0.02
 }
 ```
-- Скролл
+- Scroll
 ```json
 {"action":"scroll","coordinate":[x,y],"scroll_direction":"down|up|left|right","scroll_amount":3}
 ```
-- Ввод текста
+- Typing
 ```json
 {"action":"type","text":"Hello, world!"}
 ```
-- Скриншот
+- Screenshot
 ```json
 {"action":"screenshot"}
 ```
 
-Ответы приходят как список контент‑блоков tool_result (text/image). Скриншоты возвращаются в base64.
+Responses are returned as a list of tool_result content blocks (text/image). Screenshots are base64‑encoded.
 
 ---
 
-## Тесты
+## Tests
 
-Юнит‑тесты (без реального GUI):
+Unit tests (no real GUI):
 ```bash
 make test
 ```
-Интеграционные (реальные OS‑тесты, только macOS):
+Integration (real OS tests, macOS; Windows via self‑hosted runner):
 ```bash
 export RUN_CURSOR_TESTS=1
 make itest
 ```
-Если macOS блокирует автоматизацию (нет прав), тесты будут `skipped`. Выдайте права через `make macos-perms` и повторите.
+If macOS blocks automation, tests are skipped. Grant permissions with `make macos-perms` and retry.
+
+Windows integration testing options are described in `docs/windows-integration-testing.md`.
 
 ---
 
-## Интеграция с Flutter
+## Flutter integration
 
-Рекомендуемая архитектура — Flutter как чистый GUI, Python‑сервис локально:
-- Транспорт: WebSocket + JSON‑RPC для чата/команд, REST для файлов
-- Потоки: скриншоты (JPEG/PNG), логи, события действий
-- Примерная схема указана в `docs/flutter.md`
+Recommended setup: Flutter as pure UI, local Python service:
+- Transport: WebSocket + JSON‑RPC for chat/commands, REST for files
+- Streams: screenshots (JPEG/PNG), logs, events
+- Example notes: `docs/flutter.md`
+
+Note: project code and docs use English.
 
 ---
 
-## Контрибьютинг
+## Contributing
 
-- Форк → ветка feature/… → PR
-- Код‑стайл: читаемый, явные имена, без глубоких вложенностей
-- Тесты: добавляйте юнит‑тесты к логике и, при необходимости, интеграционные
-- Перед PR:
+- Fork → feature branch → PR
+- Code style: readable, explicit names, avoid deep nesting
+- Tests: add unit tests and integration tests when applicable
+- Before PR:
 ```bash
 make test
-RUN_CURSOR_TESTS=1 make itest   # опционально, если обновляли GUI‑взаимодействия
+RUN_CURSOR_TESTS=1 make itest   # optional if GUI interactions changed
 ```
-- Сообщения коммитов — понятные и атомарные
+- Commit messages: clear and atomic
+
+Architecture, packaging and testing docs:
+- OS Ports & Drivers: `docs/os-architecture.md`
+- Packaging & CI: `docs/ci-packaging.md`
+- Windows integration testing: `docs/windows-integration-testing.md`
+- Code style: `CODE_STYLE.md`
+- Contributing: `CONTRIBUTING.md`
+
+Packaging (single executable bundles):
+- macOS: `make build-macos-bundle` → `dist/agent_core/agent_core`
+- Windows: `make build-windows-bundle` → `dist/agent_core/agent_core.exe`
 
 ---
 
-## Лицензия
+## License
 
-Код распространяется под лицензией **Apache License 2.0**. Файл `NOTICE` обязателен к сохранению при распространении.
+Apache License 2.0. Preserve `NOTICE` when distributing.
 
-- См. `LICENSE` и `NOTICE` в корне репозитория.
-
----
-
-## Траблшутинг
-
-- «Cursor/keyboard не работает»: проверьте выдачу прав в System Settings → Privacy & Security (Accessibility, Input Monitoring, Screen Recording) для терминала и текущего Python.
-- «Интеграционные тесты падают/skip»: перезапустите терминал, убедитесь, что используете тот же `python` (см. `which python`, `python -c 'import sys; print(sys.executable)'`).
-- «Скриншоты пустые/без overlay»: включите Screen Recording для терминала, проверьте `USE_QUARTZ_SCREENSHOT`.
+- See `LICENSE` and `NOTICE` at repository root.
 
 ---
 
-## Контакты
+## Troubleshooting
 
-Issues/PR — в этом репозитории. Атрибуция указана в `NOTICE`.
+- Cursor/keyboard don’t work (macOS): grant permissions in System Settings → Privacy & Security (Accessibility, Input Monitoring, Screen Recording) for Terminal and current Python.
+- Integration tests skipped: restart terminal, ensure same interpreter (`which python`, `python -c 'import sys; print(sys.executable)'`).
+- Screenshots empty/missing overlay: enable Screen Recording; check screenshot mode settings.
 
+---
 
-## TODO
+## Contact
 
-- Кэширование промпта: использовать Prompt Caching для системного промпта/общих инструкций, чтобы не платить за них каждый раз (см. раздел Prompt caching в доках Anthropic).
-
-- Кадрирование скриншотов: добавить действие screenshot_region (x,y,w,h) и просить модель снимать только локальную область (таблица/диалог), а не весь экран.
-
-- Переключение модели: если позволяет сценарий, рассмотреть Sonnet 3.7 (часто дешевле на вход) вместо полноразмерного Claude 4 для рутинных шагов; «думать» включать точечно.
-
-
-
-
-
-- 1) Да. Мы можем обязать модель на каждом шаге отдавать компактный «контекстный блок» (state + step) — либо как отдельный text-блок JSON, либо прямо в tool_use.input (доп. поля). В system_prompt задаём контракт, например:
-  - state_update: {app, url, focus, modal, auth, last_screenshot?}
-  - step_log: {action, target, intent, result, retry?, error?}
-  - лимиты: ≤ 400–600 символов, без base64/скринов. Модель будет следовать этому в каждом tool_use (см. agent loop в доке Anthropic Computer Use [ссылка](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/computer-use-tool)).
-
-- 2) Отдельный дешёвый summarizer — хорошая альтернатива/усиление. Делать периодический вызов лёгкой модели (например, «haiku») для сжатия «старшего хвоста» сообщений в наш целевой формат (state + steps). Стоимость одной сводки обычно меньше, чем постоянная «думательная» нагрузка основной модели, а основной диалог остаётся чистым и коротким.
-
-Рекомендую гибрид:
-- Контракт на «state_update + step_log» в каждом шаге (почти нулевой оверхед).
-- Периодическая свёртка истории дешёвой моделью (каждые N итераций/по превышению длины) в долговременный summary, который подмешиваем в system и обрезаем хвост.
-
-Готов внедрить:
-- Обновлю system_prompt с жёстким контрактом по полям/лимитам.
-- Добавлю класс Summarizer (например, `utils/summarizers/llm_summarizer.py`) с вызовом дешёвой модели и интегрирую его в `ConversationOptimizer` (триггеры: длина/интервал).
+Issues/PR in this repository. Attribution is listed in `NOTICE`.

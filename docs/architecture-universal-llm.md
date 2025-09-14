@@ -66,6 +66,7 @@ File: `orchestrator.py`
 - Immediately logs assistant text parts (stream-like) via logger (`🧠 ...`)
 - Executes each tool call via `ToolRegistry.execute()` and appends provider-formatted tool results
 - Logs usage/cost per iteration when enabled (`USAGE_LOG_EACH_ITERATION`)
+- Aggregates total usage/cost for the whole run (printed by CLI), including graceful Ctrl+C exit
 - Gracefully handles provider errors (esp. Anthropic 429) and logs short, meaningful messages
 
 ## Tool Registry and Computer Tool
@@ -95,6 +96,21 @@ File: `llm/adapters_anthropic.py`
 File: `llm/adapters_openai.py`
 - Placeholder that returns a simple assistant message
 - To implement: map DTO tools to OpenAI Computer Use configuration, and format tool results as `role="tool"` messages with `tool_call_id`
+
+---
+
+## OS Execution Layer (Ports & Drivers)
+
+While the LLM layer is provider-agnostic, the desktop execution layer is also OS-agnostic via ports/drivers.
+See `docs/os-architecture.md` for a deep dive. Quick overview:
+
+- `@os` (package `os_ai_os`): defines ports (`Mouse`, `Keyboard`, `Screen`, `Overlay`, `Sound`, `Permissions`) and `PlatformDrivers`.
+- `@os-macos` (`os_ai_os_macos`): macOS driver implementations (PyAutoGUI + Quartz/AppKit overlay/sound).
+- `@os-windows` (`os_ai_os_windows`): Windows drivers (PyAutoGUI; overlay/sound no-op baseline).
+- `os_ai_os.api.get_drivers()` loads drivers via entry points depending on the current OS.
+
+Core uses only ports, never platform APIs directly.
+
 
 ## Dependency Injection
 File: `di.py`

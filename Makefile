@@ -1,7 +1,7 @@
 PY?=$(shell which python)
 PIP?=$(shell which pip)
 
-.PHONY: venv install lint test unit itest itest-local keyboard click macos-perms macos-open-accessibility macos-open-input-monitoring macos-open-screen-recording dev-install build-macos-bundle
+.PHONY: venv install lint test unit itest itest-local keyboard click macos-perms macos-open-accessibility macos-open-input-monitoring macos-open-screen-recording dev-install build-macos-bundle build-windows-bundle
 
 venv:
 	@echo "(optional) manage your venv outside Makefile"
@@ -50,5 +50,11 @@ build-macos-bundle:
 	$(PY) -m pip install pyinstaller
 	$(PY) -m PyInstaller packaging/pyinstaller-macos.spec
 	@echo "Bundle at: dist/agent_core/agent_core"
+
+build-windows-bundle:
+	# Build CLI bundle for Windows (run on Windows host/runner)
+	$(PY) -m pip install pyinstaller pywin32
+	$(PY) -m PyInstaller packaging/pyinstaller-windows.spec
+	@echo "Bundle at: dist/agent_core/agent_core.exe"
 
 

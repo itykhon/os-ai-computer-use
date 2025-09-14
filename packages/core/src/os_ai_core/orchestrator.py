@@ -17,10 +17,19 @@ class Orchestrator:
     def __init__(self, client: LLMClient, tool_registry: ToolRegistry) -> None:
         self._client = client
         self._tools = tool_registry
+        # Cumulative usage per run; reset at run() start
+        self.total_input_tokens: int = 0
+        self.total_output_tokens: int = 0
 
     def run(self, task: str, tool_descriptors: List[ToolDescriptor], system: Optional[str], max_iterations: int = 30) -> List[Message]:
         messages: List[Message] = [Message(role="user", content=[TextPart(text=task)])]
         logger = logging.getLogger(LOGGER_NAME)
+        # reset cumulative usage at start
+        try:
+            self.total_input_tokens = 0
+            self.total_output_tokens = 0
+        except Exception:
+            pass
         for _ in range(max_iterations):
             try:
                 resp = self._client.generate(messages=messages, tools=tool_descriptors, system=system)
@@ -72,9 +81,14 @@ class Orchestrator:
                 pass
             # Optional usage/cost logging similar to legacy
             try:
+                inp = int(getattr(resp.usage, "input_tokens", 0) or 0)
+                out = int(getattr(resp.usage, "output_tokens", 0) or 0)
+                try:
+                    self.total_input_tokens += inp
+                    self.total_output_tokens += out
+                except Exception:
+                    pass
                 if USAGE_LOG_EACH_ITERATION:
-                    inp = int(getattr(resp.usage, "input_tokens", 0) or 0)
-                    out = int(getattr(resp.usage, "output_tokens", 0) or 0)
                     _in_cost, _out_cost, _total, _tier = estimate_cost(MODEL_NAME, inp, out)
                     logger.info("📈 Usage iter in=%s out=%s cost=$%.6f (input=$%.6f, output=$%.6f)", inp, out, (_in_cost + _out_cost), _in_cost, _out_cost)
             except Exception:
