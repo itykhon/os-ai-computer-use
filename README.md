@@ -1,6 +1,7 @@
 # OS AI Computer Use
 
 [![CI](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml/badge.svg)](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml)
+![visitor badge](https://visitor-badge.laobi.icu/badge?page_id=iliyaZelenko.os-ai-computer-use)
 
 ## Table of Contents
 - [OS AI Computer Use](#os-ai-computer-use)
