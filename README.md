@@ -124,7 +124,6 @@ make itest-local-click           # run click/drag harness
 ## Features
 
 - Smooth mouse motion: easing, distance‑based durations
-- Pre‑move highlight (macOS overlay across Spaces/Fullscreen)
 - Clicks with modifiers: `modifiers: "cmd+shift"` for click/down/up
 - Drag control: `hold_before_ms`, `hold_after_ms`, `steps`, `step_delay`
 - Keyboard input: `key`, `hold_key`; robust Enter on macOS via Quartz
