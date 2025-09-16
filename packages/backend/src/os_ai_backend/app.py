@@ -26,6 +26,11 @@ from .settings import settings
 
 def create_app() -> FastAPI:
     cfg = load_config()
+    try:
+        debug = os.getenv("OS_AI_BACKEND_DEBUG", "0") not in ("", "0", "false", "False")
+        setup_logging(debug=debug)
+    except Exception:
+        pass
     app = FastAPI(title="OS AI Backend", version=__version__)
 
     # CORS can be relaxed in development; keep strict by default
@@ -39,7 +44,16 @@ def create_app() -> FastAPI:
 
     @app.get("/healthz")
     async def healthz() -> Dict[str, Any]:
-        return {"status": "ok", "version": __version__}
+        logging.getLogger("os_ai.backend").info("GET /healthz -> ok")
+        cfg = load_config()
+        # возвращаем выборочно публичные поля конфига
+        return {
+            "status": "ok",
+            "version": __version__,
+            "config": {
+                "history_pairs_limit": cfg.history_pairs_limit,
+            },
+        }
 
     handler = WebSocketRPCHandler()
 
@@ -49,14 +63,16 @@ def create_app() -> FastAPI:
         token = websocket.query_params.get("token")
         cfg = load_config()
         if cfg.token and token != cfg.token:
+            logging.getLogger("os_ai.backend").warning("WS unauthorized: missing/invalid token")
             await websocket.close(code=4401)
             return
         await websocket.accept()
+        logging.getLogger("os_ai.backend").info("WS connected")
         try:
             await handler.handle(websocket)
         except WebSocketDisconnect:
             # Normal disconnect by client
-            pass
+            logging.getLogger("os_ai.backend").info("WS disconnected")
         except Exception as exc:  # pragma: no cover - last resort safety
             logging.getLogger("os_ai.backend").exception("WS handler error: %s", exc)
             try:
@@ -73,6 +89,7 @@ def create_app() -> FastAPI:
             meta = store.save_bytes(data, file.filename or "upload.bin", getattr(file, "content_type", None))
         except ValueError as e:
             raise HTTPException(status_code=413, detail=str(e))
+        logging.getLogger("os_ai.backend").info("Uploaded file id=%s name=%s size=%s", meta.id, meta.original_name, len(data))
         return {"fileId": meta.id, "name": meta.original_name}
 
     @app.get("/v1/files/{file_id}")
@@ -82,8 +99,10 @@ def create_app() -> FastAPI:
         try:
             meta = store.get(file_id)
         except KeyError:
+            logging.getLogger("os_ai.backend").warning("Download file not found id=%s", file_id)
             raise HTTPException(status_code=404, detail="file not found")
         from fastapi.responses import FileResponse
+        logging.getLogger("os_ai.backend").info("Download file id=%s name=%s", file_id, meta.original_name)
         return FileResponse(path=str(meta.path), filename=meta.original_name, media_type=meta.mime or "application/octet-stream")
 
     @app.get("/metrics")
@@ -95,6 +114,7 @@ def create_app() -> FastAPI:
         cfg = load_config()
         require_token(request, cfg.token)
         s = settings.update(**body)
+        logging.getLogger("os_ai.backend").info("Settings updated: %s", list(body.keys()))
         return {"ok": True, "settings": s.__dict__}
 
     return app
@@ -107,6 +127,7 @@ def main() -> None:
     cfg = load_config()
     host = cfg.host
     port = cfg.port
+    logging.getLogger("os_ai.backend").info("Starting backend on %s:%s (debug=%s)", host, port, debug)
 
     import uvicorn
 

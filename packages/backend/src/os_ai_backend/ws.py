@@ -42,72 +42,77 @@ class WebSocketRPCHandler:
 
     async def handle(self, websocket: WebSocket) -> None:
         metrics.inc("ws_connections", 1)
-        while True:
-            raw = await websocket.receive_text()
-            try:
-                req = json.loads(raw)
-            except Exception:
-                await self._send_error(websocket, None, -32700, "Parse error")
-                continue
-
-            if not isinstance(req, dict):
-                await self._send_error(websocket, None, -32600, "Invalid Request")
-                continue
-
-            req_id = req.get("id")
-            method = req.get("method")
-            params = req.get("params") or {}
-
-            if method == "session.create":
-                provider = params.get("provider")
-                session_id, client, tools = self._create_session(provider)
-                await self._send_result(websocket, req_id, {
-                    "sessionId": session_id,
-                    "capabilities": {"ws": True, "jsonrpc": True}
-                })
-            elif method == "agent.run":
-                task_text = params.get("task") or ""
-                if not task_text:
-                    await self._send_error(websocket, req_id, -32602, "Missing 'task'")
+        try:
+            while True:
+                raw = await websocket.receive_text()
+                try:
+                    req = json.loads(raw)
+                except Exception:
+                    await self._send_error(websocket, None, -32700, "Parse error")
                     continue
-                provider = params.get("provider")
-                max_iterations = int(params.get("maxIterations", 30))
 
-                # Build session and run orchestration in background
-                session_id, client, tools = self._create_session(provider)
-                job_id = str(uuid.uuid4())
-                await self._send_result(websocket, req_id, {"jobId": job_id, "sessionId": session_id})
+                if not isinstance(req, dict):
+                    await self._send_error(websocket, None, -32600, "Invalid Request")
+                    continue
 
-                # Register cancel token before starting the job
-                early_cancel = CancelToken()
-                jobs.register(Job(id=job_id, cancel=early_cancel))
+                req_id = req.get("id")
+                method = req.get("method")
+                params = req.get("params") or {}
 
-                task = asyncio.create_task(self._run_job_and_notify(
-                    websocket=websocket,
-                    job_id=job_id,
-                    client=client,
-                    tools=tools,
-                    task_text=task_text,
-                    max_iterations=max_iterations,
-                    cancel=early_cancel,
-                ))
-                # store cancel handle
-                # CancelToken constructed in _run_job_and_notify; register a placeholder now, and update within
-                # For simplicity, we will register on first event; alternatively refactor to pass out token
-            elif method == "agent.cancel":
-                # idempotent cancel: treat unknown job as already finished/cancelled
-                job_id = params.get("jobId")
-                if job_id:
-                    try:
-                        jobs.cancel(str(job_id))
-                        ok = True
-                    except Exception:
-                        ok = True
+                if method == "session.create":
+                    provider = params.get("provider")
+                    session_id, client, tools = self._create_session(provider)
+                    self._logger.info("session.create -> %s (provider=%s)", session_id, provider or "default")
+                    await self._send_result(websocket, req_id, {
+                        "sessionId": session_id,
+                        "capabilities": {"ws": True, "jsonrpc": True}
+                    })
+                elif method == "agent.run":
+                    task_text = params.get("task") or ""
+                    if not task_text:
+                        await self._send_error(websocket, req_id, -32602, "Missing 'task'")
+                        continue
+                    provider = params.get("provider")
+                    max_iterations = int(params.get("maxIterations", 30))
+                    initial_messages = params.get("context") or []
+
+                    # Build session and run orchestration in background
+                    session_id, client, tools = self._create_session(provider)
+                    job_id = str(uuid.uuid4())
+                    self._logger.info("agent.run job=%s session=%s provider=%s", job_id, session_id, provider or "default")
+                    await self._send_result(websocket, req_id, {"jobId": job_id, "sessionId": session_id})
+
+                    # Register cancel token before starting the job
+                    cancel_token = CancelToken()
+                    jobs.register(Job(id=job_id, cancel=cancel_token))
+
+                    asyncio.create_task(self._run_job_and_notify(
+                        websocket=websocket,
+                        job_id=job_id,
+                        client=client,
+                        tools=tools,
+                        task_text=task_text,
+                        max_iterations=max_iterations,
+                        cancel=cancel_token,
+                        initial_messages=initial_messages,
+                    ))
+                    # job started asynchronously
+                elif method == "agent.cancel":
+                    # idempotent cancel: treat unknown job as already finished/cancelled
+                    job_id = params.get("jobId")
+                    if job_id:
+                        try:
+                            jobs.cancel(str(job_id))
+                            ok = True
+                        except Exception:
+                            ok = True
+                    else:
+                        ok = False
+                    await self._send_result(websocket, req_id, {"ok": ok, "jobId": job_id})
                 else:
-                    ok = False
-                await self._send_result(websocket, req_id, {"ok": ok, "jobId": job_id})
-            else:
-                await self._send_error(websocket, req_id, -32601, "Method not found")
+                    await self._send_error(websocket, req_id, -32601, "Method not found")
+        finally:
+            metrics.inc("ws_connections", -1)
 
     async def _run_job_and_notify(
         self,
@@ -118,6 +123,7 @@ class WebSocketRPCHandler:
         task_text: str,
         max_iterations: int,
         cancel: CancelToken,
+        initial_messages: list | None = None,
     ) -> None:
         screen_w, screen_h = pyautogui.size()
         tool_descs = [
@@ -156,11 +162,26 @@ class WebSocketRPCHandler:
                     asyncio.run_coroutine_threadsafe(self._send_event(websocket, "event.screenshot", {"mime": payload.get("media_type", "image/jpeg"), "data": payload.get("data", ""), "ts": None, "jobId": job_id}), loop)
                 elif kind == "progress":
                     asyncio.run_coroutine_threadsafe(self._send_event(websocket, "event.progress", {**payload, "jobId": job_id}), loop)
+                elif kind == "usage":
+                    asyncio.run_coroutine_threadsafe(self._send_event(websocket, "event.usage", {**payload, "jobId": job_id}), loop)
             except Exception:
                 pass
 
         def _blocking_run() -> Dict[str, Any]:
-            messages = orch.run(task_text, tool_descs, system_prompt, max_iterations=max_iterations, cancel_token=cancel, on_event=on_event)
+            # Convert initial context from wire into Message[] if provided
+            base_msgs = []
+            try:
+                from os_ai_llm.types import Message, TextPart
+                if initial_messages:
+                    for m in initial_messages:
+                        if isinstance(m, dict):
+                            role = m.get("role")
+                            text = m.get("text")
+                            if role and isinstance(text, str):
+                                base_msgs.append(Message(role=role, content=[TextPart(text=text)]))
+            except Exception:
+                pass
+            messages = orch.run(task_text, tool_descs, system_prompt, max_iterations=max_iterations, cancel_token=cancel, on_event=on_event, initial_messages=base_msgs)
             final_texts: list[str] = []
             for m in messages:
                 if getattr(m, "role", None) == "assistant":
@@ -189,6 +210,7 @@ class WebSocketRPCHandler:
             return
 
         await self._send_event(websocket, "event.final", {"jobId": job_id, **result})
+        self._logger.info("agent.run completed job=%s status=%s", job_id, result.get("status"))
         jobs.remove(job_id)
 
     def _create_session(self, provider: Optional[str]) -> tuple[str, LLMClient, ToolRegistry]:

@@ -10,6 +10,7 @@ class BackendConfig:
     port: int = 8765
     token: str | None = None
     allow_origins: tuple[str, ...] = ("http://localhost", "http://127.0.0.1")
+    history_pairs_limit: int = 6
 
 
 def load_config() -> BackendConfig:
@@ -22,6 +23,11 @@ def load_config() -> BackendConfig:
     except Exception:
         port = 8765
     allow_origins = tuple([o.strip() for o in origins.split(",") if o.strip()])
-    return BackendConfig(host=host, port=port, token=token, allow_origins=allow_origins)
+    hist_limit_str = os.getenv("OS_AI_BACKEND_HISTORY_PAIRS_LIMIT", "6")
+    try:
+        hist_limit = int(hist_limit_str)
+    except Exception:
+        hist_limit = 6
+    return BackendConfig(host=host, port=port, token=token, allow_origins=allow_origins, history_pairs_limit=hist_limit)
 
 

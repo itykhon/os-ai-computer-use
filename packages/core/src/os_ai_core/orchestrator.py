@@ -42,8 +42,15 @@ class Orchestrator:
         *,
         cancel_token: Optional[CancelToken] = None,
         on_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        initial_messages: Optional[List[Message]] = None,
     ) -> List[Message]:
-        messages: List[Message] = [Message(role="user", content=[TextPart(text=task)])]
+        messages: List[Message] = []
+        try:
+            if initial_messages:
+                messages.extend(initial_messages)
+        except Exception:
+            pass
+        messages.append(Message(role="user", content=[TextPart(text=task)]))
         logger = logging.getLogger(LOGGER_NAME)
         # reset cumulative usage at start
         try:
@@ -126,6 +133,18 @@ class Orchestrator:
                     self.total_output_tokens += out
                 except Exception:
                     pass
+                # Notify UI about usage for this iteration
+                if on_event is not None:
+                    try:
+                        on_event("usage", {
+                            "input_tokens": inp,
+                            "output_tokens": out,
+                            "iteration": iter_idx,
+                            "total_input_tokens": int(self.total_input_tokens),
+                            "total_output_tokens": int(self.total_output_tokens),
+                        })
+                    except Exception:
+                        pass
                 if USAGE_LOG_EACH_ITERATION:
                     _in_cost, _out_cost, _total, _tier = estimate_cost(MODEL_NAME, inp, out)
                     logger.info("📈 Usage iter in=%s out=%s cost=$%.6f (input=$%.6f, output=$%.6f)", inp, out, (_in_cost + _out_cost), _in_cost, _out_cost)
