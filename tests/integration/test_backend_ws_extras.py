@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import concurrent.futures
 import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
@@ -36,18 +37,23 @@ def client(monkeypatch):
                 raise KeyError(cls)
         return _Inj()
 
-    import os_ai_core.di as core_di
     import os_ai_backend.ws as backend_ws
-    monkeypatch.setattr(core_di, "create_container", fake_container)
-    monkeypatch.setattr(backend_ws, "create_container", fake_container)
+    monkeypatch.setattr(backend_ws, "_create_container", fake_container)
 
     app = create_app()
     return TestClient(app)
 
 
-def _recv_until(ws, method):
-    for _ in range(50):
-        msg = json.loads(ws.receive_text())
+def _recv_until(ws, method, timeout: float = 5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            fut = ex.submit(ws.receive_text)
+            try:
+                raw = fut.result(timeout=max(0.1, deadline - time.time()))
+            except concurrent.futures.TimeoutError:
+                continue
+        msg = json.loads(raw)
         if msg.get("method") == method:
             return msg
     raise AssertionError("event not received")

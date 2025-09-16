@@ -14,7 +14,6 @@ except Exception:  # pragma: no cover - fallback if orjson not available
 
 from os_ai_llm.types import ToolDescriptor
 from os_ai_core.orchestrator import Orchestrator, CancelToken
-from os_ai_core.di import create_container
 
 from os_ai_llm.interfaces import LLMClient
 from os_ai_core.tools.registry import ToolRegistry
@@ -193,7 +192,7 @@ class WebSocketRPCHandler:
         jobs.remove(job_id)
 
     def _create_session(self, provider: Optional[str]) -> tuple[str, LLMClient, ToolRegistry]:
-        inj = create_container(provider)
+        inj = _create_container(provider)
         client = inj.get(LLMClient)
         tools = inj.get(ToolRegistry)
         session_id = str(uuid.uuid4())
@@ -220,4 +219,10 @@ class WebSocketRPCHandler:
         except Exception:
             return json.dumps(obj)  # type: ignore[no-any-return]
 
+
+
+def _create_container(provider: Optional[str] = None):
+    # Lazy import to avoid hard dependency at import time (helps tests/CI without injector installed)
+    from os_ai_core.di import create_container as _cc  # type: ignore
+    return _cc(provider)
 

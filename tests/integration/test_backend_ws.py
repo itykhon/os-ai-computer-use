@@ -3,6 +3,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
+import concurrent.futures
 
 from os_ai_backend.app import create_app
 from os_ai_llm.interfaces import LLMClient
@@ -31,18 +32,18 @@ def client(monkeypatch):
                 raise KeyError(cls)
         return _Inj()
 
-    # Patch DI to avoid real provider calls
-    import os_ai_core.di as core_di
+    # Patch backend DI wrapper to avoid real provider calls (no import of os_ai_core.di)
     import os_ai_backend.ws as backend_ws
-    monkeypatch.setattr(core_di, "create_container", fake_container)
-    monkeypatch.setattr(backend_ws, "create_container", fake_container)
+    monkeypatch.setattr(backend_ws, "_create_container", fake_container)
 
     app = create_app()
     return TestClient(app)
 
 
-def _recv_json(ws):
-    raw = ws.receive_text()
+def _recv_json(ws, timeout: float = 5.0):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(ws.receive_text)
+        raw = fut.result(timeout=timeout)
     return json.loads(raw)
 
 

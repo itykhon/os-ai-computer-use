@@ -11,6 +11,7 @@ if PROJECT_ROOT not in sys.path:
 PKG_SRC_DIRS = [
     os.path.join(PROJECT_ROOT, "packages", "core", "src"),
     os.path.join(PROJECT_ROOT, "packages", "cli", "src"),
+    os.path.join(PROJECT_ROOT, "packages", "backend", "src"),
     os.path.join(PROJECT_ROOT, "packages", "llm", "src"),
     os.path.join(PROJECT_ROOT, "packages", "llm_anthropic", "src"),
     os.path.join(PROJECT_ROOT, "packages", "llm_openai", "src"),
