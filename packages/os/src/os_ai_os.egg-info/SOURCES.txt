@@ -1,5 +1,6 @@
 README.md
 pyproject.toml
+src/os_ai_os/api.py
 src/os_ai_os/config.py
 src/os_ai_os/virtual_mouse.py
 src/os_ai_os.egg-info/PKG-INFO
@@ -7,3 +8,14 @@ src/os_ai_os.egg-info/SOURCES.txt
 src/os_ai_os.egg-info/dependency_links.txt
 src/os_ai_os.egg-info/requires.txt
 src/os_ai_os.egg-info/top_level.txt
+src/os_ai_os/platform/__init__.py
+src/os_ai_os/platform/drivers.py
+src/os_ai_os/platform/factory.py
+src/os_ai_os/ports/__init__.py
+src/os_ai_os/ports/keyboard.py
+src/os_ai_os/ports/mouse.py
+src/os_ai_os/ports/overlay.py
+src/os_ai_os/ports/permissions.py
+src/os_ai_os/ports/screen.py
+src/os_ai_os/ports/sound.py
+src/os_ai_os/ports/types.py

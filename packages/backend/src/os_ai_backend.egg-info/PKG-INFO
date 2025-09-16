@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: os_ai_backend
+Version: 0.1.0
+Summary: Local WebSocket/REST backend for the OS AI agent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.112
+Requires-Dist: uvicorn[standard]>=0.30
+Requires-Dist: pydantic>=2.8
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: orjson>=3.10.7; platform_system != "Windows"
+Requires-Dist: os_ai_core>=0.1.0
+
+OS AI Backend
+=================
+
+Local FastAPI-based backend exposing WebSocket (JSON-RPC) and minimal REST for files and health checks. Designed to connect Flutter/React frontends to the OS AI orchestrator.
+
+Quick start:
+
+```bash
+os-ai-backend
+```
+
+Defaults to 127.0.0.1:8765. Configure via env: `OS_AI_BACKEND_HOST`, `OS_AI_BACKEND_PORT`.
+
+

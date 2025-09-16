@@ -1,16 +1,28 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Callable, Dict, Any
 import logging, json, sys
 import httpx
 import anthropic
 
 from os_ai_llm.interfaces import LLMClient
-from os_ai_llm.types import Message, ToolDescriptor, TextPart
+from os_ai_llm.types import Message, ToolDescriptor, TextPart, ToolCall, ToolResult, ImagePart
 from os_ai_core.utils.costs import estimate_cost
 from os_ai_core.config import USAGE_LOG_EACH_ITERATION, LOGGER_NAME
 from os_ai_llm_anthropic.config import MODEL_NAME
 from os_ai_core.tools.registry import ToolRegistry
+
+
+class CancelToken:
+    def __init__(self) -> None:
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        self._cancelled = True
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self._cancelled
 
 
 class Orchestrator:
@@ -21,7 +33,16 @@ class Orchestrator:
         self.total_input_tokens: int = 0
         self.total_output_tokens: int = 0
 
-    def run(self, task: str, tool_descriptors: List[ToolDescriptor], system: Optional[str], max_iterations: int = 30) -> List[Message]:
+    def run(
+        self,
+        task: str,
+        tool_descriptors: List[ToolDescriptor],
+        system: Optional[str],
+        max_iterations: int = 30,
+        *,
+        cancel_token: Optional[CancelToken] = None,
+        on_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> List[Message]:
         messages: List[Message] = [Message(role="user", content=[TextPart(text=task)])]
         logger = logging.getLogger(LOGGER_NAME)
         # reset cumulative usage at start
@@ -30,7 +51,19 @@ class Orchestrator:
             self.total_output_tokens = 0
         except Exception:
             pass
-        for _ in range(max_iterations):
+        for iter_idx in range(max_iterations):
+            if cancel_token is not None and cancel_token.is_cancelled:
+                if on_event is not None:
+                    try:
+                        on_event("progress", {"stage": "cancelled", "iteration": iter_idx})
+                    except Exception:
+                        pass
+                break
+            if on_event is not None:
+                try:
+                    on_event("progress", {"stage": "iteration_start", "iteration": iter_idx})
+                except Exception:
+                    pass
             try:
                 resp = self._client.generate(messages=messages, tools=tool_descriptors, system=system)
             except anthropic.RateLimitError as e:  # type: ignore
@@ -75,6 +108,11 @@ class Orchestrator:
                                     txt = str(getattr(p, "text", "")).strip()
                                     if txt:
                                         logger.info('🧠 %s', txt)
+                                        if on_event is not None:
+                                            try:
+                                                on_event("assistant_text", {"text": txt})
+                                            except Exception:
+                                                pass
                             except Exception:
                                 pass
             except Exception:
@@ -103,7 +141,32 @@ class Orchestrator:
 
             # Execute tool calls sequentially (parallel later if needed)
             for call in resp.tool_calls:
+                if cancel_token is not None and cancel_token.is_cancelled:
+                    break
+                # Notify start of tool call
+                if on_event is not None:
+                    try:
+                        on_event("tool_call", {"name": call.name, "args": call.args})
+                    except Exception:
+                        pass
                 result = self._tools.execute(call)
+                # Emit result events
+                if on_event is not None:
+                    try:
+                        # Summarize result
+                        has_image = any(isinstance(p, ImagePart) for p in result.content)
+                        if has_image:
+                            for p in result.content:
+                                if isinstance(p, ImagePart):
+                                    on_event("tool_result_image", {"media_type": p.media_type, "data": p.data_base64})
+                        else:
+                            # send first text if present
+                            for p in result.content:
+                                if getattr(p, "type", None) == "text" or type(p).__name__ == "TextPart":
+                                    on_event("tool_result_text", {"text": getattr(p, "text", "")})
+                                    break
+                    except Exception:
+                        pass
                 # Append tool_result immediately after the assistant tool_use per Anthropic rules
                 messages.append(self._client.format_tool_result(result))
 

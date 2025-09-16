@@ -1,0 +1,2 @@
+[console_scripts]
+os-ai-backend = os_ai_backend.app:main

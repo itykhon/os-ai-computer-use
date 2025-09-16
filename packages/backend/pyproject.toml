@@ -1,0 +1,30 @@
+[project]
+name = "os_ai_backend"
+version = "0.1.0"
+description = "Local WebSocket/REST backend for the OS AI agent"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Python :: 3",
+]
+
+# Runtime dependencies
+dependencies = [
+  "fastapi>=0.112",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.8",
+  "python-multipart>=0.0.9",
+  # Optional faster JSON serialization on non-Windows
+  "orjson>=3.10.7; platform_system != \"Windows\"",
+
+  # Internal packages
+  "os_ai_core>=0.1.0",
+]
+
+[project.scripts]
+os-ai-backend = "os_ai_backend.app:main"
+
+[tool.uv]
+package = true
+
+
