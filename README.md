@@ -3,6 +3,9 @@
 [![CI](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml/badge.svg)](https://github.com/iliyaZelenko/os-ai-computer-use/actions/workflows/ci.yml)
 ![visitor badge](https://visitor-badge.laobi.icu/badge?page_id=iliyaZelenko.os-ai-computer-use)
 
+<img width="605" height="669" alt="image" src="https://github.com/user-attachments/assets/fd6f43c8-81af-4ccc-80eb-25712b24c5ce" />
+
+
 ## Table of Contents
 - [OS AI Computer Use](#os-ai-computer-use)
   - [Table of Contents](#table-of-contents)

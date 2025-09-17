@@ -1,6 +1,9 @@
 OS AI Frontend (Flutter)
 ========================
 
+<img width="605" height="669" alt="image" src="https://github.com/user-attachments/assets/37b23301-250a-49e7-89c3-648cc543e09a" />
+
+
 Realtime desktop agent UI for OS AI. Connects to the local backend via WebSocket (JSON‑RPC) and REST for files. Shows thoughts, actions (with icons and badges), screenshots (zoomable), iterative usage, connection status, and total cost/tokens.
 
 Features
