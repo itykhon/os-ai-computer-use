@@ -18,6 +18,49 @@ from .overlay import highlight_position, process_overlay_events
 from .sound import play_click_sound, play_done_sound
 
 
+def _normalize_combo_keys(keys: Tuple[str, ...]) -> Tuple[str, ...]:
+    """Normalize incoming combo keys to PyAutoGUI names and split joined combos.
+
+    - Supports inputs like ("cmd", "k") or ("cmd+k",)
+    - Maps aliases: cmd->command, ctrl/control->ctrl, alt/option->option
+    - Normalizes case to lowercase
+    """
+    mapping = {
+        "cmd": "command",
+        "command": "command",
+        "ctrl": "ctrl",
+        "control": "ctrl",
+        "alt": "option",
+        "option": "option",
+        "shift": "shift",
+        "enter": "enter",
+        "return": "enter",
+        "esc": "esc",
+        "escape": "esc",
+        "tab": "tab",
+        "space": "space",
+        "backspace": "backspace",
+        "delete": "delete",
+        "up": "up",
+        "down": "down",
+        "left": "left",
+        "right": "right",
+    }
+    flat: list[str] = []
+    for raw in keys:
+        try:
+            token = (raw or "").strip()
+        except Exception:
+            token = str(raw)
+        if not token:
+            continue
+        parts = [p for p in token.split("+") if p]
+        for p in parts:
+            name = mapping.get(p.lower(), p.lower())
+            flat.append(name)
+    return tuple(flat)
+
+
 class DarwinMouse:
     def move_to(self, x: int, y: int, *, duration_ms: int = 0) -> None:
         dur = max(0.0, float(duration_ms) / 1000.0)
@@ -69,10 +112,17 @@ class DarwinKeyboard:
     def press_combo(self, keys: Tuple[str, ...]) -> None:
         if not keys:
             return
-        if len(keys) == 1:
-            pyautogui.press(keys[0])
-        else:
-            pyautogui.hotkey(*keys)
+        norm = _normalize_combo_keys(keys)
+        if not norm:
+            return
+        if len(norm) == 1:
+            # Special handling for Enter to use reliable Quartz event path
+            if norm[0] in ("enter", "return"):
+                press_enter_mac()
+            else:
+                pyautogui.press(norm[0])
+            return
+        pyautogui.hotkey(*norm)
 
     def type_text(self, text: str, *, wpm: int = 180) -> None:
         interval = 0.02
